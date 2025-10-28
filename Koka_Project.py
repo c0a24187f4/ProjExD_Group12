@@ -228,7 +228,7 @@ class Player(pg.sprite.Sprite):
         # GRAZE判定 (hitboxより大きく、イラストより少し小さい)
         self.grazebox = self.rect.inflate(-10, -10) 
 
-        self.speed = 5
+        self.speed = 5 
         self.lives = 10
         self.shoot_delay = 100  # ホーミング弾の発射間隔 (ms)
         self.last_shot = pg.time.get_ticks()
@@ -258,6 +258,8 @@ class Player(pg.sprite.Sprite):
             return
 
         current_speed = self.speed 
+        if keys[pg.K_LSHIFT]:
+            current_speed *=0.5
 
         if keys[pg.K_w]:
             self.rect.y -= current_speed
@@ -570,6 +572,16 @@ def main():
     pg.display.set_caption("某弾幕シューティング風ボスステージ")
     clock = pg.time.Clock()
 
+    try:
+        background_image = pg.image.load("data/HAIKEI.png").convert()
+        # 画面サイズに合わせて背景画像をスケール (必要に応じて)
+        # self.imageはSpriteの属性なので、ここでは直接screenに描画する
+        background_image = pg.transform.scale(background_image, (SCREEN_WIDTH, SCREEN_HEIGHT))
+    except pg.error as e:
+        print(f"背景画像 'HAIKEI.png' の読み込みに失敗しました: {e}")
+        # 失敗した場合、黒い背景を使用
+        background_image = None
+
     #  サウンドの読み込み (資料)
     try:
         # BGMの読み込みと再生 (無限ループ)
@@ -708,7 +720,10 @@ def main():
                     game_state = "results"  # リザルト画面に移行
 
             # 描画処理
-            screen.fill(BLACK)
+            if background_image:
+                screen.blit(background_image, (0, 0)) # 背景画像を描画
+            else:
+                screen.fill(BLACK) # 背景画像がなければ黒で塗りつぶす
             
             all_sprites.draw(screen)
             player_bullets.draw(screen)
