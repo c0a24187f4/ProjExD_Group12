@@ -26,6 +26,48 @@ RED = (255, 0, 0)
 GREEN = (0, 255, 0)
 BLUE = (0, 0, 255)
 
+class PowerItem(pg.sprite.Sprite):
+    """
+    パワーアップアイテム
+    """
+    def __init__(self, pos: tuple[int, int]):
+        super().__init__()
+        self.speed = 3
+        
+        # アイテム画像
+        try:
+            self.image = pg.image.load("data/PW_Item.png").convert_alpha()
+            self.image = pg.transform.scale(self.image, (150, 150))
+        except pg.error:
+            self.image = pg.Surface((10, 10))
+            self.image.fill((0, 255, 255))
+        
+        # 枠線を追加
+        pg.draw.rect(self.image, WHITE, self.image.get_rect(), 2)
+        
+        font = pg.font.Font(None, 28)
+        text_surf = font.render("P", True, WHITE)
+        text_rect = text_surf.get_rect(center=(15, 15))
+        self.image.blit(text_surf, text_rect)
+        
+        self.rect = self.image.get_rect(center=pos)
+        
+        # 移動パターン用
+        self.move_timer = 0
+        self.amplitude = 20
+        self.frequency = 0.08
+        self.start_x = pos[0]
+
+    def update(self):
+        # 下に移動しながら左右に揺れる
+        self.move_timer += 1
+        self.rect.y += self.speed
+        self.rect.x = self.start_x + math.sin(self.move_timer * self.frequency) * self.amplitude
+        
+        # 画面下に出たら消滅
+        if self.rect.top > SCREEN_HEIGHT:
+            self.kill()
+
 
 class PlayerBullet(pg.sprite.Sprite):
     """
@@ -240,6 +282,13 @@ class Player(pg.sprite.Sprite):
         self.blink_timer = 0
         self.is_visible = True
 
+        # パワーアップ関連 (時限式)
+        self.power_level = 0  # 0=通常, 1-4=パワーアップ段階
+        self.max_power_level = 4
+        self.power_duration = 5000  # 5秒 (ミリ秒)
+        self.power_start_time = 0
+        self.is_powered_up = False
+
     def update(self, keys: pg.key.ScancodeWrapper, bullets_group: pg.sprite.Group, target_boss: pg.sprite.Sprite):
         """
         プレイヤーの更新
@@ -256,6 +305,13 @@ class Player(pg.sprite.Sprite):
             self.is_visible = self.blink_timer < 10
             self.image.set_alpha(255 if self.is_visible else 0)
             return
+            # パワーアップ時間管理
+        if self.is_powered_up:
+            now = pg.time.get_ticks()
+            if now - self.power_start_time > self.power_duration:
+                # パワーアップ終了
+                self.is_powered_up = False
+                self.power_level = 0
 
         current_speed = self.speed 
 
@@ -307,6 +363,31 @@ class Player(pg.sprite.Sprite):
         self.rect.center = (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 50)
         self.hitbox.center = self.rect.center
         self.grazebox.center = self.rect.center
+    def add_power_item(self):
+        """
+        パワーアイテム取得時の処理
+        アイテムを取るとレベルが1上がり、5秒の効果時間がリセットされる
+        """
+        # レベルアップ (最大レベル4まで)
+        if self.power_level < self.max_power_level:
+            self.power_level += 1
+        
+        # 効果時間をリセット
+        self.is_powered_up = True
+        self.power_start_time = pg.time.get_ticks()
+
+
+    def get_power_remaining_time(self) -> float:
+        """
+        パワーアップの残り時間を秒単位で返す
+        """
+        if not self.is_powered_up:
+            return 0.0
+        
+        now = pg.time.get_ticks()
+        elapsed = now - self.power_start_time
+        remaining = self.power_duration - elapsed
+        return max(0.0, remaining / 1000.0)
 
 
 class Boss(pg.sprite.Sprite):
@@ -498,6 +579,8 @@ def draw_ui(screen: pg.Surface, score: int, lives: int, boss: Boss):
     lives_text = font.render(f"Lives: {lives}", True, WHITE)
     screen.blit(lives_text, (10, 40))
 
+    
+
     # ボスHP
     if boss.is_active:
         # スペルカード名
@@ -588,6 +671,7 @@ def main():
     all_sprites = pg.sprite.Group()
     player_bullets = pg.sprite.Group()
     enemy_bullets = pg.sprite.Group()
+    items = pg.sprite.Group()
 
     # インスタンスの作成
     player = Player()
@@ -601,6 +685,8 @@ def main():
 
     # メインループ
     while running:
+        if pg.time.get_ticks() > 3000 and len(items) == 0:
+            items.add(PowerItem((SCREEN_WIDTH//2, 200)))
         
         # イベント処理
         for event in pg.event.get():
@@ -636,6 +722,11 @@ def main():
 
             boss.update(enemy_bullets, player.rect.center)
             player_bullets.update()
+            items.update()
+
+            collected_items = pg.sprite.spritecollide(player, items, True)
+            for item in collected_items:
+                player.add_power_item()
             
             # 敵弾の更新 (画面外に出た弾を消去し、スコア加算)
             avoided_bullets_score = 0
@@ -713,6 +804,7 @@ def main():
             all_sprites.draw(screen)
             player_bullets.draw(screen)
             enemy_bullets.draw(screen)
+            items.draw(screen)
 
             # UIの描画
             draw_ui(screen, score, player.lives, boss)
