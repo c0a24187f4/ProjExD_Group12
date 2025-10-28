@@ -5,18 +5,15 @@ import math
 import random
 from typing import Set
 
-# --- 資料に基づく必須記述 ---
+# 資料に基づく必須記述
 # スクリプトのディレクトリをワーキングディレクトリに設定
 try:
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
 except NameError:
     # (インタラクティブシェルなど、__file__ が定義されていない場合のフォールバック)
     pass
-# ---------------------------------
 
-# =============================================================================
-# 1. config.py の内容 (グローバル定数)
-# =============================================================================
+
 # 画面設定
 SCREEN_WIDTH = 640
 SCREEN_HEIGHT = 720
@@ -29,11 +26,6 @@ RED = (255, 0, 0)
 GREEN = (0, 255, 0)
 BLUE = (0, 0, 255)
 
-# =============================================================================
-# 2. bullet.py の内容 (弾クラス)
-# =============================================================================
-
-# --- 自機弾 ---
 
 class PlayerBullet(pygame.sprite.Sprite):
     """
@@ -52,7 +44,7 @@ class PlayerBullet(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(center=pos)
         self.target = target
         self.speed = 8
-        self.turn_speed = 3 # ホーミングの追尾性能 (角度)
+        self.turn_speed = 3  # ホーミングの追尾性能 (角度)
 
         # 初期ベクトル (とりあえず上)
         self.dx = 0
@@ -69,7 +61,7 @@ class PlayerBullet(pygame.sprite.Sprite):
             current_angle = math.degrees(math.atan2(self.dy, self.dx))
 
             # 角度の差
-            delta_angle = (target_angle - current_angle + 540) % 360 - 180 # (-180～180の範囲に)
+            delta_angle = (target_angle - current_angle + 540) % 360 - 180  # (-180～180の範囲に)
 
             # 旋回
             if delta_angle > self.turn_speed:
@@ -92,8 +84,6 @@ class PlayerBullet(pygame.sprite.Sprite):
             self.kill()
 
 
-# --- 敵弾 ---
-
 class EnemyBullet(pygame.sprite.Sprite):
     """
     敵の弾 (小弾)
@@ -114,7 +104,7 @@ class EnemyBullet(pygame.sprite.Sprite):
         self.dx = math.cos(rad) * speed
         self.dy = math.sin(rad) * speed
         
-        self.grazed = False # GRAZE判定用フラグ
+        self.grazed = False  # GRAZE判定用フラグ
 
     def update(self):
         self.rect.x += self.dx
@@ -147,7 +137,7 @@ class EnemyLaser(EnemyBullet):
         try:
             # (ダミー画像)
             self.original_image = pygame.image.load("data/laser.png").convert_alpha()
-            self.original_image = pygame.transform.scale(self.original_image, (100, 5)) # 細長い画像
+            self.original_image = pygame.transform.scale(self.original_image, (100, 5))  # 細長い画像
         except pygame.error:
             self.original_image = pygame.Surface((100, 5))
             self.original_image.fill((255, 200, 0))
@@ -165,11 +155,11 @@ class EnemyDelayedLaser(pygame.sprite.Sprite):
         super().__init__()
         
         self.pos = pos
-        self.delay = delay # 発射までの待機フレーム
-        self.duration = duration # 発射中のフレーム
+        self.delay = delay  # 発射までの待機フレーム
+        self.duration = duration  # 発射中のフレーム
         self.timer = 0
         
-        self.state = "warning" # 'warning' -> 'active' -> 'finished'
+        self.state = "warning"  # 'warning' -> 'active' -> 'finished'
         
         try:
             # (ダミー画像) 予告エフェクト
@@ -193,7 +183,7 @@ class EnemyDelayedLaser(pygame.sprite.Sprite):
         self.image = self.warn_image
         self.rect = self.image.get_rect(center=self.pos)
         
-        self.grazed = False # GRAZE判定用フラグ
+        self.grazed = False  # GRAZE判定用フラグ
 
     def update(self):
         self.timer += 1
@@ -203,22 +193,17 @@ class EnemyDelayedLaser(pygame.sprite.Sprite):
             if self.timer > self.delay:
                 # 0.5秒経過
                 self.state = "active"
-                self.image = self.active_image # 実体画像に差し替え
-                self.rect = self.image.get_rect(center=self.pos) # 判定を有効化
+                self.image = self.active_image  # 実体画像に差し替え
+                self.rect = self.image.get_rect(center=self.pos)  # 判定を有効化
                 self.timer = 0
         
         elif self.state == "active":
             # 実体（当たり判定あり）
             if self.timer > self.duration:
                 self.state = "finished"
-                self.kill() # 消滅
-        
+                self.kill()  # 消滅
         # 置きレーザーは移動しない
 
-
-# =============================================================================
-# 3. player.py の内容 (自機クラス)
-# =============================================================================
 
 class Player(pygame.sprite.Sprite):
     """
@@ -227,9 +212,9 @@ class Player(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__()
         try:
-            # (ダミー画像)
+            # ダミー画像
             self.image = pygame.image.load("data/player.png").convert_alpha()
-            self.image = pygame.transform.scale(self.image, (50, 50)) # サイズ調整
+            self.image = pygame.transform.scale(self.image, (50, 50))  # サイズ調整
         except pygame.error:
             self.image = pygame.Surface((30, 40))
             self.image.fill((0, 128, 255))
@@ -245,13 +230,13 @@ class Player(pygame.sprite.Sprite):
 
         self.speed = 5
         self.lives = 10
-        self.shoot_delay = 100 # ホーミング弾の発射間隔 (ms)
+        self.shoot_delay = 100  # ホーミング弾の発射間隔 (ms)
         self.last_shot = pygame.time.get_ticks()
 
         # 復活関連
         self.is_respawning = False
         self.respawn_timer = 0
-        self.respawn_duration = 10000 # 10秒
+        self.respawn_duration = 10000  # 10秒
         self.blink_timer = 0
         self.is_visible = True
 
@@ -318,15 +303,11 @@ class Player(pygame.sprite.Sprite):
         復活処理 (SPACEキーまたはタイマー)
         """
         self.is_respawning = False
-        self.image.set_alpha(255) # 点滅終了
+        self.image.set_alpha(255)  # 点滅終了
         self.rect.center = (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 50)
         self.hitbox.center = self.rect.center
         self.grazebox.center = self.rect.center
 
-
-# =============================================================================
-# 4. boss.py の内容 (ボスクラス)
-# =============================================================================
 
 class Boss(pygame.sprite.Sprite):
     """
@@ -335,7 +316,7 @@ class Boss(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__()
         try:
-            # (ダミー画像)
+            # ダミー画像
             self.image = pygame.image.load("data/boss.png").convert_alpha()
             self.image = pygame.transform.scale(self.image, (150, 150))
         except pygame.error:
@@ -346,9 +327,9 @@ class Boss(pygame.sprite.Sprite):
 
         # (名前, HP, 弾幕パターンメソッド)
         self.spell_cards = [
-            ("スペルカード1「紅色の印」", 100, self.spell_pattern_1),
-            ("スペルカード2「蒼色のレーザー」", 150, self.spell_pattern_2),
-            ("スペルカード3「金色の悪夢」", 200, self.spell_pattern_3),
+            ("ステージ1「通常弾幕」", 100, self.spell_pattern_1),
+            ("ステージ2「レーザー弾幕」", 150, self.spell_pattern_2),
+            ("ステージ3「全弾幕」", 200, self.spell_pattern_3),
         ]
         
         self.current_spell_index = -1
@@ -361,9 +342,9 @@ class Boss(pygame.sprite.Sprite):
         # ランダム移動用の変数を追加
         self.move_timer = 0
         self.move_target_pos = self.rect.center
-        self.move_speed = 2 # ボスの移動速度
+        self.move_speed = 2  # ボスの移動速度
 
-        self.next_spell() # 最初のスペルカードを開始
+        self.next_spell()  # 最初のスペルカードを開始
 
     def next_spell(self):
         """
@@ -376,11 +357,11 @@ class Boss(pygame.sprite.Sprite):
             self.spell_start_time = pygame.time.get_ticks()
             self.current_pattern = pattern_func
             self.is_active = True
-            self.pattern_timer = 0 # パターンタイマーリセット
+            self.pattern_timer = 0  # パターンタイマーリセット
         else:
             # ボス撃破
             self.is_active = False
-            self.kill() # ボスを消去
+            self.kill()  # ボスを消去
 
     def update(self, bullets_group: pygame.sprite.Group, player_pos: tuple[int, int]):
         if not self.is_active:
@@ -406,12 +387,12 @@ class Boss(pygame.sprite.Sprite):
             self.rect.centery += (dy / dist) * self.move_speed
         # ===================================
 
-        # スペルカード実行
+        # スキル実行
         self.current_pattern(bullets_group, player_pos)
 
     def check_spell_transition(self) -> bool:
         """
-        スペル移行条件 (HPゼロのみ) をチェック
+        ステージ移行条件 (HPゼロのみ) をチェック
         """
         if not self.is_active:
             return False
@@ -420,7 +401,7 @@ class Boss(pygame.sprite.Sprite):
             
             # クリアタイムを記録
             elapsed_time_ms = pygame.time.get_ticks() - self.spell_start_time
-            self.clear_times.append(elapsed_time_ms / 1000.0) # 秒に変換してリストに追加
+            self.clear_times.append(elapsed_time_ms / 1000.0)  # 秒に変換してリストに追加
 
             self.next_spell()
             return True
@@ -430,7 +411,7 @@ class Boss(pygame.sprite.Sprite):
         if self.is_active:
             self.hp -= damage
 
-    # --- UI用ゲッター ---
+    # UI用ゲッター
     def get_current_spell_name(self) -> str:
         if self.is_active:
             return self.spell_cards[self.current_spell_index][0]
@@ -447,11 +428,9 @@ class Boss(pygame.sprite.Sprite):
             return (pygame.time.get_ticks() - self.spell_start_time) / 1000.0
         return 0.0
 
-    # === 弾幕パターン (弾幕量とランダム性 調整版) ===
-
     def spell_pattern_1(self, bullets_group: pygame.sprite.Group, player_pos: tuple[int, int]):
         """
-        スペル1: 小弾 (小弾と大弾の全方位弾)
+        ステージ1: 小弾 (小弾と大弾の全方位弾)
         """
         if self.pattern_timer % 60 == 0:
             density = 8
@@ -471,7 +450,7 @@ class Boss(pygame.sprite.Sprite):
 
     def spell_pattern_2(self, bullets_group: pygame.sprite.Group, player_pos: tuple[int, int]):
         """
-        スペル2: レーザー (細レーザーと置きレーザー)
+        ステージ2: レーザー (細レーザーと置きレーザー)
         """
         if self.pattern_timer % 90 == 0:
             count = 2
@@ -487,7 +466,7 @@ class Boss(pygame.sprite.Sprite):
 
     def spell_pattern_3(self, bullets_group: pygame.sprite.Group, player_pos: tuple[int, int]):
         """
-        スペル3: 複合弾幕 (全種類使用)
+        ステージ3: 複合弾幕 (全種類使用)
         """
         if self.pattern_timer % 70 == 0:
             density = 6
@@ -496,8 +475,7 @@ class Boss(pygame.sprite.Sprite):
                 bullets_group.add(EnemyLargeBullet(self.rect.center, angle, 2))
         
         if self.pattern_timer % 25 == 0:
-            angle_to_player = math.degrees(math.atan2(player_pos[1] - self.rect.centery, 
-                                                     player_pos[0] - self.rect.centerx))
+            angle_to_player = math.degrees(math.atan2(player_pos[1] - self.rect.centery, player_pos[0] - self.rect.centerx))
             bullets_group.add(EnemyBullet(self.rect.center, angle_to_player + random.uniform(-10, 10), 4))
             
         if self.pattern_timer % 50 == 0:
@@ -505,10 +483,6 @@ class Boss(pygame.sprite.Sprite):
             y = random.randint(SCREEN_HEIGHT // 2, SCREEN_HEIGHT - 50)
             bullets_group.add(EnemyDelayedLaser((x, y), delay=30, duration=30))
 
-
-# =============================================================================
-# 5. main.py の内容 (ゲームループとUI)
-# =============================================================================
 
 def draw_ui(screen: pygame.Surface, score: int, lives: int, boss: Boss):
     """
@@ -539,7 +513,7 @@ def draw_ui(screen: pygame.Surface, score: int, lives: int, boss: Boss):
 
         # 経過時間
         elapsed_time = boss.get_current_elapsed_time()
-        time_text = font.render(f"Time: {elapsed_time:.2f}", True, WHITE) # 小数点以下2桁
+        time_text = font.render(f"Time: {elapsed_time:.2f}", True, WHITE)  # 小数点以下2桁
         screen.blit(time_text, (SCREEN_WIDTH - time_text.get_width() - 10, 10))
 
 def draw_game_over(screen: pygame.Surface):
@@ -559,7 +533,7 @@ def draw_results(screen: pygame.Surface, times: list[float]):
     font_large = pygame.font.Font(None, 74)
     font_medium = pygame.font.Font(None, 40)
     
-    title = font_large.render("Clear!", True, (255, 255, 0)) # 黄色
+    title = font_large.render("Clear!", True, (255, 255, 0))
     screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 80))
 
     total_time = 0.0
@@ -571,7 +545,7 @@ def draw_results(screen: pygame.Surface, times: list[float]):
         y_offset += 40
         total_time += time
 
-    y_offset += 20 # 少し間隔をあける
+    y_offset += 20  # 少し間隔をあける
     pygame.draw.line(screen, WHITE, (100, y_offset), (SCREEN_WIDTH - 100, y_offset), 2)
     y_offset += 20
 
@@ -590,14 +564,13 @@ def main():
     ゲームのメイン関数
     """
     pygame.init()
-    # 資料：ミキサーの初期化
     pygame.mixer.init()
 
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-    pygame.display.set_caption("東方風シューティング (ボスステージ)")
+    pygame.display.set_caption("某弾幕シューティング風ボスステージ")
     clock = pygame.time.Clock()
 
-    # [cite_start]--- サウンドの読み込み (資料) --- [cite: 49-58]
+    #  サウンドの読み込み (資料)
     try:
         # BGMの読み込みと再生 (無限ループ)
         pygame.mixer.music.load("data/bgm.mp3")
@@ -610,27 +583,26 @@ def main():
         # print(f"サウンドファイルの読み込みに失敗しました: {e}")
         se_hit = None
         se_graze = None
-    # ---------------------------------
 
-    # --- スプライトグループの作成 ---
+    # スプライトグループの作成
     all_sprites = pygame.sprite.Group()
     player_bullets = pygame.sprite.Group()
     enemy_bullets = pygame.sprite.Group()
 
-    # --- インスタンスの作成 ---
+    # インスタンスの作成
     player = Player()
     boss = Boss()
     all_sprites.add(player, boss)
 
-    # --- ゲーム変数 ---
+    # ゲーム変数
     score = 0
-    game_state = "playing" # "playing", "game_over", "results"
+    game_state = "playing"
     running = True
 
-    # --- メインループ ---
+    # メインループ
     while running:
         
-        # --- イベント処理 ---
+        # イベント処理
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -653,11 +625,10 @@ def main():
                     if event.key == pygame.K_SPACE:
                         running = False
 
-
-        # --- 状態ごとの更新・描画処理 ---
+        # 状態ごとの更新・描画処理
 
         if game_state == "playing":
-            # --- 更新処理 ---
+            # 更新処理
             
             keys = pygame.key.get_pressed()
             
@@ -676,9 +647,9 @@ def main():
                     avoided_bullets_score += 1
             score += avoided_bullets_score
 
-            # --- 当たり判定 ---
+            # 当たり判定
 
-            # 1. 自機弾 vs ボス
+            # 自機弾 vs ボス
             hits = pygame.sprite.spritecollide(boss, player_bullets, True)
             if hits:
                 # 1ダメージ = 1ヒットとして処理
@@ -687,10 +658,10 @@ def main():
                 # 1ダメージにつきスコア1UP
                 score += damage
 
-            # 2. 敵弾 vs 自機 (被弾 & GRAZE)
+            # 敵弾 vs 自機 (被弾 & GRAZE)
             if not player.is_respawning:
                 
-                # 2a. GRAZE (かすり) 判定
+                # GRAZE (かすり) 判定
                 graze_list = pygame.sprite.spritecollide(player, enemy_bullets, False, pygame.sprite.collide_rect)
                 
                 for bullet in graze_list:
@@ -700,12 +671,12 @@ def main():
 
                     if not bullet.grazed:
                         if not player.hitbox.colliderect(bullet.rect):
-                            score += 20 # ★GRAZEスコア20
+                            score += 20 # GRAZEスコア20
                             bullet.grazed = True
                             if se_graze:
                                 se_graze.play()
 
-                # 2b. 被弾判定 (hitbox)
+                # 被弾判定 (hitbox)
                 hit_bullets = []
                 for bullet in enemy_bullets:
                     # 置きレーザーが 'warning' 状態なら判定しない
@@ -727,16 +698,16 @@ def main():
                     if player.lives <= 0:
                         game_state = "game_over"
 
-            # 3. スペルカード移行判定
+            # ステージ移行判定
             if boss.check_spell_transition():
                 # 移行時に弾幕を消去
                 for bullet in enemy_bullets:
                     bullet.kill()
                 
                 if not boss.is_active:
-                    game_state = "results" # リザルト画面に移行
+                    game_state = "results"  # リザルト画面に移行
 
-            # --- 描画処理 ---
+            # 描画処理
             screen.fill(BLACK)
             
             all_sprites.draw(screen)
@@ -755,11 +726,11 @@ def main():
             pygame.display.flip()
 
         elif game_state == "game_over":
-            # --- ゲームオーバー画面描画 ---
+            # ゲームオーバー画面描画 ---
             draw_game_over(screen)
 
         elif game_state == "results":
-            # --- リザルト画面描画 ---
+            # リザルト画面描画
             draw_results(screen, boss.clear_times)
 
         clock.tick(FPS)
@@ -767,10 +738,6 @@ def main():
     pygame.quit()
     sys.exit()
 
-
-# =============================================================================
-# 6. 実行ブロック
-# =============================================================================
 
 if __name__ == "__main__":
     main()
