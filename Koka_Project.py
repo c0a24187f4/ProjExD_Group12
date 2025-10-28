@@ -326,15 +326,15 @@ class Boss(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(center=(SCREEN_WIDTH // 2, 150))
 
         # (名前, HP, 弾幕パターンメソッド)
-        self.spell_cards = [
-            ("ステージ1「通常弾幕」", 100, self.spell_pattern_1),
-            ("ステージ2「レーザー弾幕」", 150, self.spell_pattern_2),
-            ("ステージ3「全弾幕」", 200, self.spell_pattern_3),
+        self.skill = [
+            ("ステージ1「通常弾幕」", 100, self.skill_pattern_1),
+            ("ステージ2「レーザー弾幕」", 150, self.skill_pattern_2),
+            ("ステージ3「全弾幕」", 200, self.skill_pattern_3),
         ]
         
-        self.current_spell_index = -1
+        self.current_skill_index = -1
         self.hp = 0
-        self.spell_start_time = 0
+        self.skill_start_time = 0
         self.clear_times = []
         self.is_active = False
         self.pattern_timer = 0
@@ -344,17 +344,17 @@ class Boss(pygame.sprite.Sprite):
         self.move_target_pos = self.rect.center
         self.move_speed = 2  # ボスの移動速度
 
-        self.next_spell()  # 最初のスペルカードを開始
+        self.next_skill()  # 最初のスペルカードを開始
 
-    def next_spell(self):
+    def next_skill(self):
         """
         次のスペルカードに移行する
         """
-        self.current_spell_index += 1
-        if self.current_spell_index < len(self.spell_cards):
-            name, max_hp, pattern_func = self.spell_cards[self.current_spell_index]
+        self.current_skill_index += 1
+        if self.current_skill_index < len(self.skill):
+            name, max_hp, pattern_func = self.skill[self.current_skill_index]
             self.hp = max_hp
-            self.spell_start_time = pygame.time.get_ticks()
+            self.skill_start_time = pygame.time.get_ticks()
             self.current_pattern = pattern_func
             self.is_active = True
             self.pattern_timer = 0  # パターンタイマーリセット
@@ -390,7 +390,7 @@ class Boss(pygame.sprite.Sprite):
         # スキル実行
         self.current_pattern(bullets_group, player_pos)
 
-    def check_spell_transition(self) -> bool:
+    def check_skill_transition(self) -> bool:
         """
         ステージ移行条件 (HPゼロのみ) をチェック
         """
@@ -400,10 +400,10 @@ class Boss(pygame.sprite.Sprite):
         if self.hp <= 0:
             
             # クリアタイムを記録
-            elapsed_time_ms = pygame.time.get_ticks() - self.spell_start_time
+            elapsed_time_ms = pygame.time.get_ticks() - self.skill_start_time
             self.clear_times.append(elapsed_time_ms / 1000.0)  # 秒に変換してリストに追加
 
-            self.next_spell()
+            self.next_skill()
             return True
         return False
 
@@ -412,23 +412,23 @@ class Boss(pygame.sprite.Sprite):
             self.hp -= damage
 
     # UI用ゲッター
-    def get_current_spell_name(self) -> str:
+    def get_current_skill_name(self) -> str:
         if self.is_active:
-            return self.spell_cards[self.current_spell_index][0]
+            return self.skill[self.current_skill_index][0]
         return ""
 
-    def get_current_spell_max_hp(self) -> int:
+    def get_current_skill_max_hp(self) -> int:
         if self.is_active:
-            return self.spell_cards[self.current_spell_index][1]
+            return self.skill[self.current_skill_index][1]
         return 1
 
     def get_current_elapsed_time(self) -> float:
         """ 経過時間を返す """
         if self.is_active:
-            return (pygame.time.get_ticks() - self.spell_start_time) / 1000.0
+            return (pygame.time.get_ticks() - self.skill_start_time) / 1000.0
         return 0.0
 
-    def spell_pattern_1(self, bullets_group: pygame.sprite.Group, player_pos: tuple[int, int]):
+    def skill_pattern_1(self, bullets_group: pygame.sprite.Group, player_pos: tuple[int, int]):
         """
         ステージ1: 小弾 (小弾と大弾の全方位弾)
         """
@@ -448,7 +448,7 @@ class Boss(pygame.sprite.Sprite):
                 speed = 4
                 bullets_group.add(EnemyBullet(self.rect.center, angle, speed))
 
-    def spell_pattern_2(self, bullets_group: pygame.sprite.Group, player_pos: tuple[int, int]):
+    def skill_pattern_2(self, bullets_group: pygame.sprite.Group, player_pos: tuple[int, int]):
         """
         ステージ2: レーザー (細レーザーと置きレーザー)
         """
@@ -464,7 +464,7 @@ class Boss(pygame.sprite.Sprite):
                                                      player_pos[0] - self.rect.centerx))
             bullets_group.add(EnemyLaser(self.rect.center, angle_to_player + random.uniform(-15, 15), 8))
 
-    def spell_pattern_3(self, bullets_group: pygame.sprite.Group, player_pos: tuple[int, int]):
+    def skill_pattern_3(self, bullets_group: pygame.sprite.Group, player_pos: tuple[int, int]):
         """
         ステージ3: 複合弾幕 (全種類使用)
         """
@@ -501,12 +501,12 @@ def draw_ui(screen: pygame.Surface, score: int, lives: int, boss: Boss):
     # ボスHP
     if boss.is_active:
         # スペルカード名
-        spell_name = boss.get_current_spell_name()
-        spell_text = font.render(spell_name, True, WHITE)
-        screen.blit(spell_text, (SCREEN_WIDTH // 2 - spell_text.get_width() // 2, 10))
+        skill_name = boss.get_current_skill_name()
+        skill_text = font.render(skill_name, True, WHITE)
+        screen.blit(skill_text, (SCREEN_WIDTH // 2 - skill_text.get_width() // 2, 10))
 
         # HPバー
-        hp_ratio = boss.hp / boss.get_current_spell_max_hp()
+        hp_ratio = boss.hp / boss.get_current_skill_max_hp()
         hp_bar_width = (SCREEN_WIDTH - 40) * hp_ratio
         pygame.draw.rect(screen, (100, 100, 100), (20, 40, SCREEN_WIDTH - 40, 20))
         pygame.draw.rect(screen, (255, 0, 0), (20, 40, hp_bar_width, 20))
@@ -540,7 +540,7 @@ def draw_results(screen: pygame.Surface, times: list[float]):
     y_offset = 200
     
     for i, time in enumerate(times):
-        text = font_medium.render(f"Spell {i+1}: {time:.2f} sec", True, WHITE)
+        text = font_medium.render(f"Skill {i+1}: {time:.2f} sec", True, WHITE)
         screen.blit(text, (SCREEN_WIDTH // 2 - text.get_width() // 2, y_offset))
         y_offset += 40
         total_time += time
@@ -699,7 +699,7 @@ def main():
                         game_state = "game_over"
 
             # ステージ移行判定
-            if boss.check_spell_transition():
+            if boss.check_skill_transition():
                 # 移行時に弾幕を消去
                 for bullet in enemy_bullets:
                     bullet.kill()
