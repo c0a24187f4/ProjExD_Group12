@@ -11,7 +11,6 @@ try:
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
 except NameError:
     # (インタラクティブシェルなど、__file__ が定義されていない場合のフォールバック)
-    # print("Could not change working directory. Assuming relative paths are correct.")
     pass
 # ---------------------------------
 
@@ -29,12 +28,6 @@ WHITE = (255, 255, 255)
 RED = (255, 0, 0)
 GREEN = (0, 255, 0)
 BLUE = (0, 0, 255)
-
-# --- (追加機能用フック) 難易度 ---
-# (例: "NORMAL", "HARD")
-DIFFICULTY = "NORMAL"
-# ----------------------------------
-
 
 # =============================================================================
 # 2. bullet.py の内容 (弾クラス)
@@ -251,7 +244,7 @@ class Player(pygame.sprite.Sprite):
         self.grazebox = self.rect.inflate(-10, -10) 
 
         self.speed = 5
-        self.lives = 10 # ★変更点: 残機を10に
+        self.lives = 10
         self.shoot_delay = 100 # ホーミング弾の発射間隔 (ms)
         self.last_shot = pygame.time.get_ticks()
 
@@ -262,25 +255,9 @@ class Player(pygame.sprite.Sprite):
         self.blink_timer = 0
         self.is_visible = True
 
-        # --- (追加機能用フック) ---
-        # (1) スピードダウン機能用
-        self.slow_speed = 2 # Shiftキー押下時の速度
-        
-        # (2) ボム機能用
-        self.bombs = 3 # 初期ボム数
-        
-        # (3) パワーアップ機能用
-        self.power = 1
-        self.bullet_power = 1 # 弾の威力
-        # ---------------------------
-
-    def update(self, keys: pygame.key.ScancodeWrapper, is_slow: bool, bullets_group: pygame.sprite.Group, target_boss: pygame.sprite.Sprite):
+    def update(self, keys: pygame.key.ScancodeWrapper, bullets_group: pygame.sprite.Group, target_boss: pygame.sprite.Sprite):
         """
         プレイヤーの更新
-        keys: 押されているキーの状態
-        is_slow: (追加機能)低速移動フラグ
-        bullets_group: 自機弾スプライトグループ
-        target_boss: ホーミング対象のボス
         """
         
         if self.is_respawning:
@@ -295,9 +272,7 @@ class Player(pygame.sprite.Sprite):
             self.image.set_alpha(255 if self.is_visible else 0)
             return
 
-        # --- (追加機能フック) 低速移動 ---
-        current_speed = self.slow_speed if is_slow else self.speed
-        # ---------------------------------
+        current_speed = self.speed 
 
         if keys[pygame.K_w]:
             self.rect.y -= current_speed
@@ -326,11 +301,6 @@ class Player(pygame.sprite.Sprite):
         if now - self.last_shot > self.shoot_delay:
             self.last_shot = now
             
-            # --- (追加機能フック) パワーアップ ---
-            # パワーに応じて弾の数を増やすなど
-            # (例: if self.power > 10: ... )
-            # ---------------------------------
-            
             new_bullet = PlayerBullet(self.rect.center, target_boss)
             bullets_group.add(new_bullet)
 
@@ -353,25 +323,6 @@ class Player(pygame.sprite.Sprite):
         self.hitbox.center = self.rect.center
         self.grazebox.center = self.rect.center
 
-    # --- (追加機能フック) ボム ---
-    def use_bomb(self) -> bool:
-        """
-        ボムを使用する。成功したらTrueを返す。
-        """
-        if self.bombs > 0 and not self.is_respawning:
-            self.bombs -= 1
-            return True
-        return False
-    # -----------------------------
-
-    # --- (追加機能フック) パワーアップ ---
-    def add_power(self, amount: int):
-        """
-        パワーアイテムを取得
-        """
-        self.power += amount
-    # ----------------------------------
-
 
 # =============================================================================
 # 4. boss.py の内容 (ボスクラス)
@@ -393,12 +344,6 @@ class Boss(pygame.sprite.Sprite):
             
         self.rect = self.image.get_rect(center=(SCREEN_WIDTH // 2, 150))
 
-        # --- (追加機能フック) 難易度 ---
-        self.difficulty = DIFFICULTY
-        # -----------------------------
-
-        # === ★変更点: HPとタイムの仕様変更 ===
-        # スペルカード設定
         # (名前, HP, 弾幕パターンメソッド)
         self.spell_cards = [
             ("スペルカード1「紅色の印」", 100, self.spell_pattern_1),
@@ -408,12 +353,12 @@ class Boss(pygame.sprite.Sprite):
         
         self.current_spell_index = -1
         self.hp = 0
-        self.spell_start_time = 0 # ★変更: スペル開始時間 (ms)
-        self.clear_times = []     # ★追加: クリアタイム (秒) のリスト
+        self.spell_start_time = 0
+        self.clear_times = []
         self.is_active = False
         self.pattern_timer = 0
         
-        # === ランダム移動用の変数を追加 ===
+        # ランダム移動用の変数を追加
         self.move_timer = 0
         self.move_target_pos = self.rect.center
         self.move_speed = 2 # ボスの移動速度
@@ -426,10 +371,9 @@ class Boss(pygame.sprite.Sprite):
         """
         self.current_spell_index += 1
         if self.current_spell_index < len(self.spell_cards):
-            # ★変更: 制限時間(time_limit)を削除
             name, max_hp, pattern_func = self.spell_cards[self.current_spell_index]
             self.hp = max_hp
-            self.spell_start_time = pygame.time.get_ticks() # ★変更: 開始時間を記録
+            self.spell_start_time = pygame.time.get_ticks()
             self.current_pattern = pattern_func
             self.is_active = True
             self.pattern_timer = 0 # パターンタイマーリセット
@@ -442,10 +386,9 @@ class Boss(pygame.sprite.Sprite):
         if not self.is_active:
             return
 
-        # ★変更: 制限時間タイマーを削除
         self.pattern_timer += 1
         
-        # === ボスのランダム移動処理 ===
+        # ボスのランダム移動処理
         self.move_timer += 1
         if self.move_timer > 90:
             self.move_timer = 0
@@ -468,22 +411,16 @@ class Boss(pygame.sprite.Sprite):
 
     def check_spell_transition(self) -> bool:
         """
-        ★変更: スペル移行条件 (HPゼロのみ) をチェック
-        移行する場合はTrueを返す
+        スペル移行条件 (HPゼロのみ) をチェック
         """
         if not self.is_active:
             return False
 
-        # ★変更: タイムアップ(or self.spell_timer <= 0)を削除
         if self.hp <= 0:
             
-            # ★追加: クリアタイムを記録
+            # クリアタイムを記録
             elapsed_time_ms = pygame.time.get_ticks() - self.spell_start_time
             self.clear_times.append(elapsed_time_ms / 1000.0) # 秒に変換してリストに追加
-
-            # --- (追加機能フック) アイテムドロップ ---
-            # self.drop_items(items_group) 
-            # --------------------------------------
 
             self.next_spell()
             return True
@@ -505,7 +442,7 @@ class Boss(pygame.sprite.Sprite):
         return 1
 
     def get_current_elapsed_time(self) -> float:
-        """ ★変更: 経過時間を返す (旧 get_time_left) """
+        """ 経過時間を返す """
         if self.is_active:
             return (pygame.time.get_ticks() - self.spell_start_time) / 1000.0
         return 0.0
@@ -600,13 +537,13 @@ def draw_ui(screen: pygame.Surface, score: int, lives: int, boss: Boss):
         pygame.draw.rect(screen, (100, 100, 100), (20, 40, SCREEN_WIDTH - 40, 20))
         pygame.draw.rect(screen, (255, 0, 0), (20, 40, hp_bar_width, 20))
 
-        # ★変更: 経過時間
+        # 経過時間
         elapsed_time = boss.get_current_elapsed_time()
         time_text = font.render(f"Time: {elapsed_time:.2f}", True, WHITE) # 小数点以下2桁
         screen.blit(time_text, (SCREEN_WIDTH - time_text.get_width() - 10, 10))
 
 def draw_game_over(screen: pygame.Surface):
-    """ ★追加: ゲームオーバー画面描画 """
+    """ ゲームオーバー画面描画 """
     screen.fill(BLACK)
     font = pygame.font.Font(None, 74)
     text = font.render("GAME OVER", True, WHITE)
@@ -617,7 +554,7 @@ def draw_game_over(screen: pygame.Surface):
     pygame.display.flip()
 
 def draw_results(screen: pygame.Surface, times: list[float]):
-    """ ★追加: リザルト画面描画 """
+    """ リザルト画面描画 """
     screen.fill(BLACK)
     font_large = pygame.font.Font(None, 74)
     font_medium = pygame.font.Font(None, 40)
@@ -679,8 +616,6 @@ def main():
     all_sprites = pygame.sprite.Group()
     player_bullets = pygame.sprite.Group()
     enemy_bullets = pygame.sprite.Group()
-    # (追加機能用) アイテムグループ
-    # items = pygame.sprite.Group()
 
     # --- インスタンスの作成 ---
     player = Player()
@@ -689,7 +624,7 @@ def main():
 
     # --- ゲーム変数 ---
     score = 0
-    game_state = "playing" # ★変更: "playing", "game_over", "results"
+    game_state = "playing" # "playing", "game_over", "results"
     running = True
 
     # --- メインループ ---
@@ -700,34 +635,23 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
             
-            # ★変更: ゲーム状態ごとのキー入力
             if game_state == "playing":
                 # プレイヤー復活処理
                 if player.is_respawning and event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_SPACE:
                         player.respawn()
 
-                # --- (追加機能用フック) ボムの使用 ---
-                # if event.type == pygame.KEYDOWN:
-                #     if event.key == pygame.K_x: # (例: Xキーでボム)
-                #         if player.use_bomb():
-                #             # ボム使用時の処理 (弾幕消去)
-                #             for bullet in enemy_bullets:
-                #                 bullet.kill()
-                #             # (ボムエフェクトの追加など)
-                # ------------------------------------
-
             elif game_state == "game_over":
                 # ゲームオーバー画面でSPACEキーを押したら終了
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_SPACE:
-                        running = False # ★変更: コンティニューではなく終了
+                        running = False
 
             elif game_state == "results":
                 # リザルト画面でSPACEキーを押したら終了
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_SPACE:
-                        running = False # ★変更: 終了
+                        running = False
 
 
         # --- 状態ごとの更新・描画処理 ---
@@ -735,13 +659,9 @@ def main():
         if game_state == "playing":
             # --- 更新処理 ---
             
-            # (追加機能用フック) Shiftキーによるスピードダウン
             keys = pygame.key.get_pressed()
             
-            # --- ↓ Shift機能実装時の player.update 呼び出し例 ---
-            is_slow = keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]
-            player.update(keys, is_slow, player_bullets, boss)
-            # ----------------------------------------------------
+            player.update(keys, player_bullets, boss)
 
             boss.update(enemy_bullets, player.rect.center)
             player_bullets.update()
@@ -761,9 +681,11 @@ def main():
             # 1. 自機弾 vs ボス
             hits = pygame.sprite.spritecollide(boss, player_bullets, True)
             if hits:
-                boss.hit(len(hits) * player.bullet_power) # (パワーアップ機能用に威力を参照)
+                # 1ダメージ = 1ヒットとして処理
+                damage = len(hits)
+                boss.hit(damage)
                 # 1ダメージにつきスコア1UP
-                score += len(hits) * player.bullet_power
+                score += damage
 
             # 2. 敵弾 vs 自機 (被弾 & GRAZE)
             if not player.is_respawning:
@@ -778,7 +700,7 @@ def main():
 
                     if not bullet.grazed:
                         if not player.hitbox.colliderect(bullet.rect):
-                            score += 20 # GRAZEでスコア20倍 (20UP)
+                            score += 20 # ★GRAZEスコア20
                             bullet.grazed = True
                             if se_graze:
                                 se_graze.play()
@@ -803,7 +725,7 @@ def main():
                         bullet.kill()
                     
                     if player.lives <= 0:
-                        game_state = "game_over" # ★変更: ゲームオーバー状態に移行
+                        game_state = "game_over"
 
             # 3. スペルカード移行判定
             if boss.check_spell_transition():
@@ -811,10 +733,8 @@ def main():
                 for bullet in enemy_bullets:
                     bullet.kill()
                 
-                # ★変更: ボス撃破（is_activeがFalse）になったらリザルトへ
                 if not boss.is_active:
                     game_state = "results" # リザルト画面に移行
-                    # (running = False を削除)
 
             # --- 描画処理 ---
             screen.fill(BLACK)
@@ -822,7 +742,6 @@ def main():
             all_sprites.draw(screen)
             player_bullets.draw(screen)
             enemy_bullets.draw(screen)
-            # items.draw(screen) # (追加機能用)
 
             # UIの描画
             draw_ui(screen, score, player.lives, boss)
