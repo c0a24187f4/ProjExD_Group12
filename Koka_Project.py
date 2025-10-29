@@ -583,18 +583,10 @@ def main():
         background_image = None
 
     #  サウンドの読み込み (資料)
-    try:
-        # BGMの読み込みと再生 (無限ループ)
-        pg.mixer.music.load("data/bgm.mp3")
-        pg.mixer.music.play(loops=-1) #
 
-        # 効果音の読み込み
-        se_hit = pg.mixer.Sound("data/se_hit.wav") #
-        se_graze = pg.mixer.Sound("data/se_graze.wav")
-    except pg.error as e:
-        # print(f"サウンドファイルの読み込みに失敗しました: {e}")
-        se_hit = None
-        se_graze = None
+    # BGMの読み込みと再生 (無限ループ)
+    pg.mixer.music.load("bgm/BGM1.mp3")
+    pg.mixer.music.play(loops=-1)
 
     # スプライトグループの作成
     all_sprites = pg.sprite.Group()
@@ -685,8 +677,8 @@ def main():
                         if not player.hitbox.colliderect(bullet.rect):
                             score += 20 # GRAZEスコア20
                             bullet.grazed = True
-                            if se_graze:
-                                se_graze.play()
+                            #if se_graze:
+                                #dse_graze.play()
 
                 # 被弾判定 (hitbox)
                 hit_bullets = []
@@ -699,8 +691,8 @@ def main():
                         hit_bullets.append(bullet)
 
                 if hit_bullets:
-                    if se_hit:
-                        se_hit.play()
+                    #if se_hit:
+                        #se_hit.play()
                     
                     player.hit()
                     
