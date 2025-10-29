@@ -41,12 +41,9 @@ class PowerItem(pg.sprite.Sprite):
         except pg.error:
             self.image = pg.Surface((10, 10))
             self.image.fill((0, 255, 255))
-        
-        # 枠線を追加
-        pg.draw.rect(self.image, WHITE, self.image.get_rect(), 2)
-        
+                
         font = pg.font.Font(None, 28)
-        text_surf = font.render("P", True, WHITE)
+        text_surf = font.render(" ", True, WHITE)
         text_rect = text_surf.get_rect(center=(15, 15))
         self.image.blit(text_surf, text_rect)
         
@@ -73,10 +70,9 @@ class PlayerBullet(pg.sprite.Sprite):
     """
     自機の弾 (ホーミング)
     """
-    def __init__(self, pos: tuple[int, int], target: pg.sprite.Sprite):
+    def __init__(self, pos: tuple[int, int], target: pg.sprite.Sprite,damage: int = 1):
         super().__init__()
         try:
-            # (ダミー画像)
             self.image = pg.image.load("data/bullet_player.png").convert_alpha()
             self.image = pg.transform.scale(self.image, (12, 12))
         except pg.error:
@@ -87,6 +83,7 @@ class PlayerBullet(pg.sprite.Sprite):
         self.target = target
         self.speed = 8
         self.turn_speed = 3  # ホーミングの追尾性能 (角度)
+        self.damage = damage
 
         # 初期ベクトル (とりあえず上)
         self.dx = 0
@@ -341,9 +338,8 @@ class Player(pg.sprite.Sprite):
         now = pg.time.get_ticks()
         if now - self.last_shot > self.shoot_delay:
             self.last_shot = now
-            
-            new_bullet = PlayerBullet(self.rect.center, target_boss)
-            bullets_group.add(new_bullet)
+            damage = self.power_level + 1
+            bullets_group.add(PlayerBullet(self.rect.center, target_boss, damage))
 
     def hit(self):
         """
@@ -579,6 +575,7 @@ def draw_ui(screen: pg.Surface, score: int, lives: int, boss: Boss):
     lives_text = font.render(f"Lives: {lives}", True, WHITE)
     screen.blit(lives_text, (10, 40))
 
+
     
 
     # ボスHP
@@ -683,11 +680,12 @@ def main():
     game_state = "playing"
     running = True
 
+    # アイテム生成タイマー
+    item_spawn_interval = 3000  # 3秒
+    last_item_spawn = pg.time.get_ticks()
+
     # メインループ
     while running:
-        if pg.time.get_ticks() > 3000 and len(items) == 0:
-            items.add(PowerItem((SCREEN_WIDTH//2, 200)))
-        
         # イベント処理
         for event in pg.event.get():
             if event.type == pg.QUIT:
@@ -715,6 +713,14 @@ def main():
 
         if game_state == "playing":
             # 更新処理
+            now = pg.time.get_ticks()
+            if now - last_item_spawn > item_spawn_interval:
+                last_item_spawn = now
+                # 画面上部のランダムな位置に生成
+                spawn_x = random.randint(50, SCREEN_WIDTH - 50)
+                spawn_y = -20
+                new_item = PowerItem((spawn_x, spawn_y))
+                items.add(new_item)
             
             keys = pg.key.get_pressed()
             
@@ -744,10 +750,10 @@ def main():
             hits = pg.sprite.spritecollide(boss, player_bullets, True)
             if hits:
                 # 1ダメージ = 1ヒットとして処理
-                damage = len(hits)
-                boss.hit(damage)
+                total_damage = sum(bullet.damage for bullet in hits)
+                boss.hit(total_damage)
                 # 1ダメージにつきスコア1UP
-                score += damage
+                score += total_damage
 
             # 敵弾 vs 自機 (被弾 & GRAZE)
             if not player.is_respawning:
