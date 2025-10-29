@@ -34,7 +34,6 @@ class PlayerBullet(pg.sprite.Sprite):
     def __init__(self, pos: tuple[int, int], target: pg.sprite.Sprite):
         super().__init__()
         try:
-            # (ダミー画像)
             self.image = pg.image.load("data/bullet_player.png").convert_alpha()
             self.image = pg.transform.scale(self.image, (12, 12))
         except pg.error:
@@ -91,7 +90,6 @@ class EnemyBullet(pg.sprite.Sprite):
     def __init__(self, pos: tuple[int, int], angle: float, speed: float):
         super().__init__()
         try:
-            # (ダミー画像)
             self.image = pg.image.load("data/bullet_enemy_small.png").convert_alpha()
             self.image = pg.transform.scale(self.image, (10, 10))
         except pg.error:
@@ -119,7 +117,6 @@ class EnemyLargeBullet(EnemyBullet):
     def __init__(self, pos: tuple[int, int], angle: float, speed: float):
         super().__init__(pos, angle, speed)
         try:
-            # (ダミー画像)
             self.image = pg.image.load("data/bullet_enemy_large.png").convert_alpha()
             self.image = pg.transform.scale(self.image, (25, 25))
         except pg.error:
@@ -135,7 +132,6 @@ class EnemyLaser(EnemyBullet):
     def __init__(self, pos: tuple[int, int], angle: float, speed: float):
         super().__init__(pos, angle, speed)
         try:
-            # (ダミー画像)
             self.original_image = pg.image.load("data/laser.png").convert_alpha()
             self.original_image = pg.transform.scale(self.original_image, (100, 5))  # 細長い画像
         except pg.error:
@@ -162,7 +158,6 @@ class EnemyDelayedLaser(pg.sprite.Sprite):
         self.state = "warning"  # 'warning' -> 'active' -> 'finished'
         
         try:
-            # (ダミー画像) 予告エフェクト
             self.warn_image = pg.image.load("data/laser_warning.png").convert_alpha()
             self.warn_image = pg.transform.scale(self.warn_image, (30, 300))
         except pg.error:
@@ -173,7 +168,6 @@ class EnemyDelayedLaser(pg.sprite.Sprite):
         self.warn_image.set_alpha(100) 
 
         try:
-            # (ダミー画像) 本体
             self.active_image = pg.image.load("data/laser.png").convert_alpha()
             self.active_image = pg.transform.scale(self.active_image, (30, 300))
         except pg.error:
@@ -212,7 +206,6 @@ class Player(pg.sprite.Sprite):
     def __init__(self):
         super().__init__()
         try:
-            # ダミー画像
             self.image = pg.image.load("data/player.png").convert_alpha()
             self.image = pg.transform.scale(self.image, (50, 50))  # サイズ調整
         except pg.error:
@@ -316,7 +309,6 @@ class Boss(pg.sprite.Sprite):
     def __init__(self):
         super().__init__()
         try:
-            # ダミー画像
             self.image = pg.image.load("data/boss.png").convert_alpha()
             self.image = pg.transform.scale(self.image, (150, 150))
         except pg.error:
