@@ -26,6 +26,7 @@ RED = (255, 0, 0)
 GREEN = (0, 255, 0)
 BLUE = (0, 0, 255)
 
+
 class PowerItem(pg.sprite.Sprite):
     """
     パワーアップアイテム
@@ -37,7 +38,7 @@ class PowerItem(pg.sprite.Sprite):
         # アイテム画像
         try:
             self.image = pg.image.load("data/PW_Item.png").convert_alpha()
-            self.image = pg.transform.scale(self.image, (150, 150))
+            self.image = pg.transform.scale(self.image, (300, 300))
         except pg.error:
             self.image = pg.Surface((10, 10))
             self.image.fill((0, 255, 255))
@@ -272,7 +273,7 @@ class Player(pg.sprite.Sprite):
         self.shoot_delay = 100  # ホーミング弾の発射間隔 (ms)
         self.last_shot = pg.time.get_ticks()
 
-        # 復活関連
+        # 復活関連  
         self.is_respawning = False
         self.respawn_timer = 0
         self.respawn_duration = 10000  # 10秒
@@ -280,10 +281,10 @@ class Player(pg.sprite.Sprite):
         self.is_visible = True
 
         # パワーアップ関連 (時限式)
-        self.power_level = 0  # 0=通常, 1-4=パワーアップ段階
-        self.max_power_level = 4
-        self.power_duration = 5000  # 5秒 (ミリ秒)
-        self.power_start_time = 0
+        self.power_level = 0  # 0=通常
+        self.max_power_level = 1
+        self.item_count = 0
+        self.items_per_level = 5
         self.is_powered_up = False
 
     def update(self, keys: pg.key.ScancodeWrapper, bullets_group: pg.sprite.Group, target_boss: pg.sprite.Sprite):
@@ -302,14 +303,7 @@ class Player(pg.sprite.Sprite):
             self.is_visible = self.blink_timer < 10
             self.image.set_alpha(255 if self.is_visible else 0)
             return
-            # パワーアップ時間管理
-        if self.is_powered_up:
-            now = pg.time.get_ticks()
-            if now - self.power_start_time > self.power_duration:
-                # パワーアップ終了
-                self.is_powered_up = False
-                self.power_level = 0
-
+        
         current_speed = self.speed 
 
         if keys[pg.K_w]:
@@ -364,27 +358,11 @@ class Player(pg.sprite.Sprite):
         パワーアイテム取得時の処理
         アイテムを取るとレベルが1上がり、5秒の効果時間がリセットされる
         """
-        # レベルアップ (最大レベル4まで)
-        if self.power_level < self.max_power_level:
+        # レベルアップ
+        self.item_count += 1
+        if self.item_count >= self.items_per_level and self.power_level < self.max_power_level:
             self.power_level += 1
-        
-        # 効果時間をリセット
-        self.is_powered_up = True
-        self.power_start_time = pg.time.get_ticks()
-
-
-    def get_power_remaining_time(self) -> float:
-        """
-        パワーアップの残り時間を秒単位で返す
-        """
-        if not self.is_powered_up:
-            return 0.0
-        
-        now = pg.time.get_ticks()
-        elapsed = now - self.power_start_time
-        remaining = self.power_duration - elapsed
-        return max(0.0, remaining / 1000.0)
-
+            self.item_count = 0
 
 class Boss(pg.sprite.Sprite):
     """
@@ -570,13 +548,10 @@ def draw_ui(screen: pg.Surface, score: int, lives: int, boss: Boss):
     # スコア
     score_text = font.render(f"Score: {score}", True, WHITE)
     screen.blit(score_text, (10, 10))
-    
+
     # 残機
     lives_text = font.render(f"Lives: {lives}", True, WHITE)
     screen.blit(lives_text, (10, 40))
-
-
-    
 
     # ボスHP
     if boss.is_active:
@@ -656,7 +631,7 @@ def main():
         pg.mixer.music.load("data/bgm.mp3")
         pg.mixer.music.play(loops=-1) #
 
-        # 効果音の読み込み
+        # 効果音の読み込みs
         se_hit = pg.mixer.Sound("data/se_hit.wav") #
         se_graze = pg.mixer.Sound("data/se_graze.wav")
     except pg.error as e:
@@ -681,7 +656,7 @@ def main():
     running = True
 
     # アイテム生成タイマー
-    item_spawn_interval = 3000  # 3秒
+    item_spawn_interval = 5000  # 5秒
     last_item_spawn = pg.time.get_ticks()
 
     # メインループ
@@ -730,9 +705,14 @@ def main():
             player_bullets.update()
             items.update()
 
+            # アイテム取得判定
+            se_powerup = pg.mixer.Sound("sound/8bit詠唱2.mp3")
             collected_items = pg.sprite.spritecollide(player, items, True)
-            for item in collected_items:
-                player.add_power_item()
+            if collected_items:
+                for item in collected_items:
+                    player.add_power_item()
+                if se_powerup:
+                    se_powerup.play()
             
             # 敵弾の更新 (画面外に出た弾を消去し、スコア加算)
             avoided_bullets_score = 0
