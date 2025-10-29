@@ -585,7 +585,7 @@ def main():
     #  サウンドの読み込み (資料)
 
     # BGMの読み込みと再生 (無限ループ)
-    pg.mixer.music.load("bgm/BGM1.mp3")
+    pg.mixer.music.load("data/BGM1.mp3")
     pg.mixer.music.play(loops=-1)
 
     # スプライトグループの作成
