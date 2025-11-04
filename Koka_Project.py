@@ -1275,6 +1275,16 @@ def main():
     clock = pg.time.Clock()
 
     #背景の追加した
+    try:
+        background_image = pg.image.load("data/HAIKEI.png").convert()
+        # 画面サイズに合わせて背景画像をスケール (必要に応じて)
+        # self.imageはSpriteの属性なので、ここでは直接screenに描画する
+        background_image = pg.transform.scale(background_image, (SCREEN_WIDTH, SCREEN_HEIGHT))
+    except pg.error as e:
+        print(f"背景画像 'HAIKEI.png' の読み込みに失敗しました: {e}")
+        # 失敗した場合、黒い背景を使用
+        background_image = None
+
     # BGMと効果音を None で初期化
     se_hit = None
     se_graze = None
@@ -1282,7 +1292,7 @@ def main():
     se_powerup = None # ★修正: Noneで初期化
     try:
         # BGM の読み込みと再生 (無限ループ)
-        pg.mixer.music.load("data/bgm.mp3")
+        pg.mixer.music.load("data/BGM1.mp3")
         pg.mixer.music.play(loops=-1) #
 
         # 効果音の読み込みs
@@ -1532,7 +1542,10 @@ def main():
 
             # 描画処理
             
-            screen.fill(BLACK) # 背景画像がなければ黒で塗りつぶす
+            if background_image:
+                screen.blit(background_image, (0, 0)) # 背景画像を描画
+            else:
+                screen.fill(BLACK) # 背景画像がなければ黒で塗りつぶす
             
             # all_sprites.draw(screen) # PlayerとBossも描画
             # Player, Boss を all_sprites に入れた場合の描画
