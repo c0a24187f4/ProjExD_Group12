@@ -1274,6 +1274,7 @@ def main():
     pg.display.set_caption("某弾幕シューティング風ボスステージ (EX Stage 追加)")
     clock = pg.time.Clock()
 
+    #背景の追加した
     # BGMと効果音を None で初期化
     se_hit = None
     se_graze = None
