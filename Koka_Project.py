@@ -3,14 +3,14 @@ import sys
 import os
 import math
 import random
-from typing import Set
+from typing import Set, List, Tuple
 
 # 資料に基づく必須記述
 # スクリプトのディレクトリをワーキングディレクトリに設定
 try:
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
 except NameError:
-    # (インタラクティブシェルなど、__file__ が定義されていない場合のフォールバック)
+    # (インタラクティブシェルなど, __file__ が定義されていない場合のフォールバック)
     pass
 
 
@@ -228,6 +228,9 @@ class EnemyLaser(EnemyBullet):
         # 角度に合わせて画像を回転
         self.image = pg.transform.rotate(self.original_image, -angle)
         self.rect = self.image.get_rect(center=pos)
+        
+        # 細レーザーは当たり判定が大きくなりがちなので、rectを少し小さくする
+        # [指示6: レーザーの当たり判定を1回のみ書く] (重複した行を削除)
 
 
 class EnemyDelayedLaser(pg.sprite.Sprite):
@@ -272,7 +275,7 @@ class EnemyDelayedLaser(pg.sprite.Sprite):
         if self.state == "warning":
             # 警告表示（半透明）
             if self.timer > self.delay:
-                # 0.5秒経過
+                # 警告時間経過
                 self.state = "active"
                 self.image = self.active_image  # 実体画像に差し替え
                 self.rect = self.image.get_rect(center=self.pos)  # 判定を有効化
@@ -284,6 +287,77 @@ class EnemyDelayedLaser(pg.sprite.Sprite):
                 self.state = "finished"
                 self.kill()  # 消滅
         # 置きレーザーは移動しない
+
+# ★ここから追加されたBombAreaクラス
+class BombArea:
+    """
+    ボム効果エリア（敵弾消滅範囲）
+    """
+    def __init__(self, center_pos: tuple[int, int]):
+        # 設定値
+        self.radius = 300 
+        self.duration_frames = 2 * FPS  # 2秒 * FPS (60) = 120フレーム
+        
+        # 実行時変数
+        self.center = center_pos
+        self.timer = 0
+        self.is_active = True
+        
+    def update(self, player_center: tuple[int, int]):
+        """
+        自機の位置を追従し、タイマーを更新する
+        """
+        if self.is_active:
+            self.center = player_center
+            self.timer += 1
+            if self.timer >= self.duration_frames:
+                self.is_active = False
+
+    def check_collision_and_kill(self, enemy_bullets: pg.sprite.Group) -> int:
+        """
+        敵弾との衝突判定を行い、範囲内の敵弾を消滅させる。
+        消滅させた弾の数を返す。
+        """
+        if not self.is_active:
+            return 0
+            
+        bullets_killed_count = 0
+        
+        # 敵弾リストを逆順にイテレートし、killしても安全にする
+        for bullet in list(enemy_bullets):
+            # 弾とボムエリアの中心間の距離を計算
+            dist = math.hypot(bullet.rect.centerx - self.center[0], 
+                              bullet.rect.centery - self.center[1])
+            
+            # 距離が半径より小さければ衝突
+            if dist < self.radius:
+                bullet.kill()
+                bullets_killed_count += 1
+                
+        return bullets_killed_count
+
+    def draw(self, screen: pg.Surface):
+        """
+        ボムエリアの円を描画する (可視化用)
+        """
+        if self.is_active:
+            # 警告的な薄いオレンジ色で円を描画
+            alpha = 150
+            # 最初と最後の30Fで点滅を表現
+            if self.timer < 30 or self.duration_frames - self.timer < 30: 
+                # abs(math.sin(self.timer * 0.5)) で0から1を周期的に変動
+                alpha = 150 + int(100 * abs(math.sin(self.timer * 0.5)))
+                
+            s = pg.Surface((self.radius * 2, self.radius * 2), pg.SRCALPHA)
+            s.fill((0, 0, 0, 0)) # 透明なサーフェス
+            
+            color = (255, 165, 0) # オレンジ
+            # 半透明の円を描画 (色 + alpha値)
+            pg.draw.circle(s, color + (min(255, alpha),), (self.radius, self.radius), self.radius, 0)
+            
+            # 画面に描画
+            screen.blit(s, (self.center[0] - self.radius, self.center[1] - self.radius))
+# ★BombAreaクラスここまで
 
 
 # ---------------------------
@@ -539,8 +613,9 @@ class Boss(pg.sprite.Sprite):
         dist = math.hypot(dx, dy)
         
         if dist > self.move_speed:
-            self.rect.centerx += (dx / dist) * self.move_speed
-            self.rect.centery += (dy / dist) * self.move_speed
+            # [指示5: ボスの移動を1つ目に] (round()処理を維持)
+            self.rect.centerx += round((dx / dist) * self.move_speed) # roundで整数化
+            self.rect.centery += round((dy / dist) * self.move_speed) # roundで整数化
 
         # スキル実行（現在のパターン関数を呼ぶ）
         # pattern 関数のシグネチャは (bullets_group, player_pos)
@@ -587,7 +662,6 @@ class Boss(pg.sprite.Sprite):
             return (pg.time.get_ticks() - self.skill_start_time) / 1000.0
         return 0.0
 
-    # ========== 既存のパターン ==========
     def skill_pattern_1(self, bullets_group: pg.sprite.Group, player_pos: tuple[int, int]):
         """
         ステージ1: 小弾 (小弾と大弾の全方位弾)
@@ -842,9 +916,9 @@ class LevelChange:
         pg.display.flip()
 
 
-def draw_ui(screen: pg.Surface, score: int, lives: int, boss: Boss):
+def draw_ui(screen: pg.Surface, score: int, lives: int, boss: Boss, bomb: BombArea):
     """
-    UI（スコア、残機、ボスHPなど）を描画する
+    UI（スコア、残機、ボスHP、ボム数など）を描画する
     """
     font = pg.font.Font(None, 36)
     
@@ -855,6 +929,10 @@ def draw_ui(screen: pg.Surface, score: int, lives: int, boss: Boss):
     # 残機
     lives_text = font.render(f"Lives: {lives}", True, WHITE)
     screen.blit(lives_text, (10, 40))
+    
+    # ★追加: ボム数
+    bomb_text = font.render(f"Bomb: {bomb}", True, (255, 165, 0))
+    screen.blit(bomb_text, (10, 70)) 
 
     # ボスHP
     if boss and getattr(boss, "is_active", False): # bossがNoneでないことも確認
@@ -874,6 +952,7 @@ def draw_ui(screen: pg.Surface, score: int, lives: int, boss: Boss):
         elapsed_time = boss.get_current_elapsed_time()
         time_text = font.render(f"Time: {elapsed_time:.2f}", True, WHITE)  # 小数点以下2桁
         screen.blit(time_text, (SCREEN_WIDTH - time_text.get_width() - 10, 10))
+
 
 def draw_game_over(screen: pg.Surface):
     """ ゲームオーバー画面描画 """
@@ -1218,6 +1297,7 @@ def main():
         # 効果音の読み込みs
         se_hit = pg.mixer.Sound("data/se_hit.wav") #
         se_graze = pg.mixer.Sound("data/se_graze.wav")
+        se_bomb = pg.mixer.Sound("sound/8bit_read2.mp3")
     except (pg.error, FileNotFoundError):
         print("Warning: BGMまたは効果音ファイルが見つかりません。")
 
@@ -1248,11 +1328,17 @@ def main():
     item_spawn_interval = 5000  # 5秒
     last_item_spawn = pg.time.get_ticks()
 
+    # ★追加: ボム関連の変数
+    bombs = 3 # 残りボム数
+    bomb_active_area: BombArea | None = None # 現在アクティブなボムエリア
+    
+
     # メインループ
     while running:
         events = pg.event.get()
         
-        for event in events: # 個々のイベント処理 (QUITなど)
+        # イベント処理
+        for event in pg.event.get():
             if event.type == pg.QUIT:
                 running = False
             
@@ -1302,6 +1388,18 @@ def main():
                             ex_stage_manager.start()
                             game_state = "ex_stage" # メインの状態を EX に移行
 
+                # ★追加: Tabキーでボム使用
+                if event.type == pg.KEYDOWN and event.key == pg.K_TAB:
+                    # ボムが残っていて、かつ、現在アクティブなボムがない時のみ発動
+                    if bombs > 0 and bomb_active_area is None: 
+                        bombs -= 1
+                        bomb_active_area = BombArea(player.rect.center)
+                        if se_bomb:
+                            # 効果音は音量が大きくなりがちなので、適宜音量調整を入れる
+                            se_bomb.set_volume(0.5) 
+                            se_bomb.play()
+
+
             elif game_state == "game_over":
                 # ゲームオーバー画面でSPACEキーを押したら終了
                 if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
@@ -1346,6 +1444,16 @@ def main():
                 if se_powerup:
                     se_powerup.play()
             
+            # ★追加: ボムの更新と敵弾消去
+            if bomb_active_area is not None:
+                bomb_active_area.update(player.rect.center)
+                # 範囲内の弾を消去し、スコア加算
+                killed_bullets = bomb_active_area.check_collision_and_kill(enemy_bullets)
+                score += killed_bullets * 1 # ボムで消した弾は1点
+                
+                if not bomb_active_area.is_active:
+                    bomb_active_area = None # ボム終了
+
             # 敵弾の更新 (画面外に出た弾を消去し、スコア加算)
             avoided_bullets_score = 0
             for bullet in list(enemy_bullets): # list() でコピーを作成してイテレート
@@ -1417,6 +1525,9 @@ def main():
                 for bullet in list(enemy_bullets):
                     bullet.kill()
                 
+                # ★追加: ステージ移行時にボムエリアを強制終了
+                bomb_active_area = None 
+                
                 if not boss.is_active:
                     game_state = "results"  # リザルト画面に移行
 
@@ -1434,10 +1545,14 @@ def main():
             player_bullets.draw(screen)
             enemy_bullets.draw(screen)
             items.draw(screen)
+            
+            # ★追加: ボムエリアの描画
+            if bomb_active_area is not None:
+                bomb_active_area.draw(screen)
 
             # UIの描画
-            draw_ui(screen, score, player.lives, boss)
-            
+            draw_ui(screen, score, player.lives, boss, bombs) # ★修正: bombsを渡す
+
             # 復活待機中の表示
             if player.is_respawning:
                 font = pg.font.Font(None, 40)
@@ -1487,6 +1602,5 @@ def main():
         clock.tick(FPS)
     pg.quit()
     sys.exit()
-
 if __name__ == "__main__":
     main()
