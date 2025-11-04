@@ -7,12 +7,7 @@ from typing import Set, List, Tuple
 
 # 資料に基づく必須記述
 # スクリプトのディレクトリをワーキングディレクトリに設定
-try:
-    os.chdir(os.path.dirname(os.path.abspath(__file__)))
-except NameError:
-    # (インタラクティブシェルなど, __file__ が定義されていない場合のフォールバック)
-    pass
-
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 # 画面設定
 SCREEN_WIDTH = 600
@@ -188,9 +183,7 @@ class EnemyLaser(EnemyBullet):
         # 角度に合わせて画像を回転
         self.image = pg.transform.rotate(self.original_image, -angle)
         self.rect = self.image.get_rect(center=pos)
-        
         # 細レーザーは当たり判定が大きくなりがちなので、rectを少し小さくする
-        # [指示6: レーザーの当たり判定を1回のみ書く] (重複した行を削除)
 
 
 class EnemyDelayedLaser(pg.sprite.Sprite):
@@ -248,7 +241,7 @@ class EnemyDelayedLaser(pg.sprite.Sprite):
                 self.kill()  # 消滅
         # 置きレーザーは移動しない
 
-# ★ここから追加されたBombAreaクラス
+
 class BombArea:
     """
     ボム効果エリア（敵弾消滅範囲）
@@ -286,8 +279,7 @@ class BombArea:
         # 敵弾リストを逆順にイテレートし、killしても安全にする
         for bullet in list(enemy_bullets):
             # 弾とボムエリアの中心間の距離を計算
-            dist = math.hypot(bullet.rect.centerx - self.center[0], 
-                              bullet.rect.centery - self.center[1])
+            dist = math.hypot(bullet.rect.centerx - self.center[0], bullet.rect.centery - self.center[1])
             
             # 距離が半径より小さければ衝突
             if dist < self.radius:
@@ -317,12 +309,8 @@ class BombArea:
             
             # 画面に描画
             screen.blit(s, (self.center[0] - self.radius, self.center[1] - self.radius))
-# ★BombAreaクラスここまで
 
 
-# ---------------------------
-# EX専用: 特大弾クラス
-# ---------------------------
 class EnemyHugeBullet(EnemyBullet):
     """
     敵の弾 (特大弾) - EX専用
@@ -465,6 +453,7 @@ class Player(pg.sprite.Sprite):
         self.rect.center = (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 50)
         self.hitbox.center = self.rect.center
         self.grazebox.center = self.rect.center
+
     def add_power_item(self):
         """
         パワーアイテム取得時の処理
@@ -475,6 +464,7 @@ class Player(pg.sprite.Sprite):
         if self.item_count >= self.items_per_level and self.power_level < self.max_power_level:
             self.power_level += 1
             self.item_count = 0
+
 
 class Boss(pg.sprite.Sprite):
     """
@@ -507,10 +497,9 @@ class Boss(pg.sprite.Sprite):
             ("STAGE3", hp_list[2], self.skill_pattern_3),
         ]
         
-        # EX用スペル（後で start_ex_stage で設定する）
+        # EX用スキル（後で start_ex_stage で設定する）
         self.ex_skill = [
             # name, hp, pattern placeholder (hpは合計で設定する)
-            # ★ 修正: メソッド自体を渡す
             ("EX STAGE", 0, self.ex_pattern_final),
         ]
 
@@ -552,8 +541,6 @@ class Boss(pg.sprite.Sprite):
             # 通常ステージ時は消去するが、EXステージ時は演出・リザルトのため消去しない
             if not self.is_ex_stage:
                 self.kill()
-            # if not self.is_ex_stage: # 重複削除
-            #     self.kill()
 
     def update(self, bullets_group: pg.sprite.Group, player_pos: tuple[int, int]):
         if not self.is_active:
@@ -575,7 +562,6 @@ class Boss(pg.sprite.Sprite):
         dist = math.hypot(dx, dy)
         
         if dist > self.move_speed:
-            # [指示5: ボスの移動を1つ目に] (round()処理を維持)
             self.rect.centerx += round((dx / dist) * self.move_speed) # roundで整数化
             self.rect.centery += round((dy / dist) * self.move_speed) # roundで整数化
 
@@ -605,14 +591,12 @@ class Boss(pg.sprite.Sprite):
 
     # UI用ゲッター
     def get_current_skill_name(self) -> str:
-        # if 0 <= self.current_skill_index < len(self.skill):
         current_skill_list = self.skill
         if 0 <= self.current_skill_index < len(current_skill_list):
             return current_skill_list[self.current_skill_index][0]
         return ""
 
     def get_current_skill_max_hp(self) -> int:
-        # if 0 <= self.current_skill_index < len(self.skill):
         current_skill_list = self.skill
         if 0 <= self.current_skill_index < len(current_skill_list):
             return current_skill_list[self.current_skill_index][1]
@@ -728,8 +712,7 @@ class Boss(pg.sprite.Sprite):
             y = random.randint(SCREEN_HEIGHT // 2, SCREEN_HEIGHT - 50)
             bullets_group.add(EnemyDelayedLaser((x, y), delay=30, duration=30))
 
-    # ★ 修正: ex_pattern_final を Boss クラスのメソッドとしてインデント
-    # ========== EX 用最終パターン（既存パターン＋特大弾） ==========
+
     def ex_pattern_final(self, bullets_group: pg.sprite.Group, player_pos: tuple[int, int]):
         """
         EXステージ最終パターン:
@@ -810,18 +793,9 @@ class LevelChange:
         self.levels = ["EASY", "NORMAL", "HARD"]
         self.selected_index = 1  # 初期選択は NORMAL
         
-        # 描画用のフォントをあらかじめ読み込む
-        try:
-            # (もし特定のフォントを使いたい場合はここで読み込む)
-            # self.font_large = pg.font.Font("data/font.ttf", 60)
-            self.font_large = pg.font.Font(None, 60)
-            self.font_medium = pg.font.Font(None, 45)
-            self.font_small = pg.font.Font(None, 30)
-        except (pg.error, FileNotFoundError):
-            # フォントがない場合はデフォルトフォント
-            self.font_large = pg.font.Font(None, 60)
-            self.font_medium = pg.font.Font(None, 45)
-            self.font_small = pg.font.Font(None, 30)
+        self.font_large = pg.font.Font(None, 60)
+        self.font_medium = pg.font.Font(None, 45)
+        self.font_small = pg.font.Font(None, 30)
     
     def handle_event(self, event: pg.event.Event, current_game_state: str):
         """
@@ -872,13 +846,13 @@ class LevelChange:
             y_offset += 60
         
         y_offset += 100
-        start_text = self.font_small.render("Press SPACE or ENTER to Start", True, WHITE) # 修正
+        start_text = self.font_small.render("Press SPACE or ENTER to Start", True, WHITE)
         screen.blit(start_text, (SCREEN_WIDTH // 2 - start_text.get_width() // 2, y_offset))
 
         pg.display.flip()
 
 
-def draw_ui(screen: pg.Surface, score: int, lives: int, boss: Boss, bomb: int): # ★引数 bomb を BombArea から int に修正
+def draw_ui(screen: pg.Surface, score: int, lives: int, boss: Boss, bomb: int): # bomb を BombArea から int に修正
     """
     UI（スコア、残機、ボスHP、ボム数など）を描画する
     """
@@ -892,7 +866,7 @@ def draw_ui(screen: pg.Surface, score: int, lives: int, boss: Boss, bomb: int): 
     lives_text = font.render(f"Lives: {lives}", True, WHITE)
     screen.blit(lives_text, (10, 40))
     
-    # ★追加: ボム数
+    # ボム数
     bomb_text = font.render(f"Bomb: {bomb}", True, (255, 165, 0))
     screen.blit(bomb_text, (10, 70)) 
 
@@ -927,6 +901,7 @@ def draw_game_over(screen: pg.Surface):
     screen.blit(text, (SCREEN_WIDTH // 2 - text.get_width() // 2, SCREEN_HEIGHT // 2 + 20))
     pg.display.flip()
 
+
 def draw_results(screen: pg.Surface, times: list[float]):
     """ リザルト画面描画（ここで CTRL 押下で EX へ行ける） """
     screen.fill(BLACK)
@@ -959,8 +934,6 @@ def draw_results(screen: pg.Surface, times: list[float]):
     # continue_text = ... # 重複削除
     screen.blit(continue_text, (SCREEN_WIDTH // 2 - continue_text.get_width() // 2, y_offset))
     
-    # pg.display.flip() # main側でflipする
-    
 
 # EX 関連の描画（演出）
 def draw_ex_transition(screen: pg.Surface, title: str, color: tuple[int, int, int]):
@@ -975,15 +948,6 @@ def draw_ex_transition(screen: pg.Surface, title: str, color: tuple[int, int, in
     title_text = font_large.render(title, True, color)
     screen.blit(title_text, (SCREEN_WIDTH // 2 - title_text.get_width() // 2, SCREEN_HEIGHT // 2 - 50))
 
-    # ★画像を表示したい場合はここで blit してください:
-    # 例:
-    # try:
-    #     ex_banner = pg.image.load("data/ex_banner.png").convert_alpha()
-    #     ex_banner = pg.transform.scale(ex_banner, (400, 200))
-    #     screen.blit(ex_banner, (SCREEN_WIDTH//2 - 200, SCREEN_HEIGHT//2 + 10))
-    # except (pg.error, FileNotFoundError):
-    #     pass
-
     msg = ""
     if title == "EXTRA STAGE START":
         msg = "Prepare for the ultimate challenge!"
@@ -996,8 +960,7 @@ def draw_ex_transition(screen: pg.Surface, title: str, color: tuple[int, int, in
 
     msg_text = font_medium.render(msg, True, WHITE)
     screen.blit(msg_text, (SCREEN_WIDTH // 2 - msg_text.get_width() // 2, SCREEN_HEIGHT // 2 + 30))
-    
-    # pg.display.flip() # main側 (EX_STAGEクラス) でflipする
+
 
 def draw_ex_results(screen: pg.Surface, time: float):
     """ EXステージのクリアタイムを表示するリザルト """
@@ -1017,8 +980,6 @@ def draw_ex_results(screen: pg.Surface, time: float):
     y_offset += 100
     continue_text = font_medium.render("Press SPACE to Exit", True, WHITE)
     screen.blit(continue_text, (SCREEN_WIDTH // 2 - continue_text.get_width() // 2, y_offset))
-    
-    # pg.display.flip() # main側 (EX_STAGEクラス) でflipする
 
 
 # EXステージ管理クラス
@@ -1026,9 +987,7 @@ class EX_STAGE:
     """
     EXTRA STAGE全体の進行（演出、プレイ、リザルト）を管理するクラス
     """
-    def __init__(self, screen: pg.Surface, player: Player, boss: Boss, 
-                 all_sprites: pg.sprite.Group, player_bullets: pg.sprite.Group, 
-                 enemy_bullets: pg.sprite.Group, se_hit, se_graze, se_bomb, bombs: int): # ★修正: se_bomb, bombs を追加
+    def __init__(self, screen: pg.Surface, player: Player, boss: Boss, all_sprites: pg.sprite.Group, player_bullets: pg.sprite.Group, enemy_bullets: pg.sprite.Group, se_hit, se_graze, se_bomb, bombs: int): # se_bomb, bombs を追加
         
         # 必要なオブジェクト参照
         self.screen = screen
@@ -1054,7 +1013,7 @@ class EX_STAGE:
         # EX専用スコア
         self.score = 0
         self.bombs = bombs # ★修正: ボム数を保持
-        self.bomb_active_area: BombArea | None = None # ★修正: EX用ボムエリア
+        self.bomb_active_area: BombArea | None = None # EX用ボムエリア
 
     def start(self):
         """
@@ -1103,7 +1062,7 @@ class EX_STAGE:
                     if event.key == pg.K_SPACE:
                         self.player.respawn()
 
-                # ★修正: EXステージ中のボム使用
+                # EXステージ中のボム使用
                 if event.type == pg.KEYDOWN and event.key == pg.K_TAB:
                     if self.bombs > 0 and self.bomb_active_area is None:
                         self.bombs -= 1
@@ -1118,7 +1077,7 @@ class EX_STAGE:
                 self.boss.update(self.enemy_bullets, self.player.rect.center)
             self.player_bullets.update()
 
-            # ★修正: ボムエリアの更新
+            # ボムエリアの更新
             if self.bomb_active_area is not None:
                 self.bomb_active_area.update(self.player.rect.center)
                 killed_bullets = self.bomb_active_area.check_collision_and_kill(self.enemy_bullets)
@@ -1147,8 +1106,7 @@ class EX_STAGE:
             # 敵弾 vs 自機
             if not self.player.is_respawning:
                 # GRAZE判定
-                graze_list = pg.sprite.spritecollide(self.player, self.enemy_bullets, False, 
-                                                    lambda p, b: p.grazebox.colliderect(b.rect))
+                graze_list = pg.sprite.spritecollide(self.player, self.enemy_bullets, False, lambda p, b: p.grazebox.colliderect(b.rect))
                 for bullet in graze_list:
                     if isinstance(bullet, EnemyDelayedLaser) and bullet.state != "active":
                         continue
@@ -1159,8 +1117,7 @@ class EX_STAGE:
                             if self.se_graze: self.se_graze.play()
 
                 # 被弾判定
-                hit_bullets = pg.sprite.spritecollide(self.player, self.enemy_bullets, False, 
-                                                      lambda p, b: p.hitbox.colliderect(b.rect))
+                hit_bullets = pg.sprite.spritecollide(self.player, self.enemy_bullets, False, lambda p, b: p.hitbox.colliderect(b.rect))
                 active_hit_bullets = []
                 for bullet in hit_bullets:
                     if isinstance(bullet, EnemyDelayedLaser) and bullet.state != "active":
@@ -1172,7 +1129,7 @@ class EX_STAGE:
                     if self.se_hit: self.se_hit.play()
                     self.player.hit()
                     self.enemy_bullets.empty() # 弾幕全消去
-                    self.bomb_active_area = None # ★修正: 被弾時にボム消去
+                    self.bomb_active_area = None # 被弾時にボム消去
                     
                     if self.player.lives <= 0:
                         self.internal_state = "transition_failed" # EX失敗
@@ -1181,7 +1138,7 @@ class EX_STAGE:
             # ステージ移行判定 (ボス撃破)
             if self.boss.check_skill_transition():
                 self.enemy_bullets.empty()
-                self.bomb_active_area = None # ★修正: ステージ移行時にボム消去
+                self.bomb_active_area = None # ステージ移行時にボム消去
                 if not self.boss.is_active:
                     self.internal_state = "transition_clear" # EXクリア
                     self.transition_timer = 0
@@ -1228,12 +1185,12 @@ class EX_STAGE:
             self.player_bullets.draw(self.screen)
             self.enemy_bullets.draw(self.screen)
             
-            # ★修正: ボムエリアの描画
+            # ボムエリアの描画
             if self.bomb_active_area is not None:
                 self.bomb_active_area.draw(self.screen)
 
             # UI描画 (EX専用スコアを使用)
-            draw_ui(self.screen, self.score, self.player.lives, self.boss, self.bombs) # ★修正: self.bombs を渡す
+            draw_ui(self.screen, self.score, self.player.lives, self.boss, self.bombs) # self.bombs を渡す
             
             # 復活待機中の表示
             if self.player.is_respawning:
@@ -1288,18 +1245,18 @@ def main():
     # BGMと効果音を None で初期化
     se_hit = None
     se_graze = None
-    se_bomb = None # ★修正: Noneで初期化
-    se_powerup = None # ★修正: Noneで初期化
+    se_bomb = None # Noneで初期化
+    se_powerup = None # Noneで初期化
     try:
         # BGM の読み込みと再生 (無限ループ)
         pg.mixer.music.load("data/BGM1.mp3")
-        pg.mixer.music.play(loops=-1) #
+        pg.mixer.music.play(loops=-1)
 
         # 効果音の読み込みs
         se_hit = pg.mixer.Sound("data/se_hit.wav") #
         se_graze = pg.mixer.Sound("data/se_graze.wav")
-        se_bomb = pg.mixer.Sound("data/8bit_read2.mp3") # ★修正: パスを data/ に変更
-        se_powerup = pg.mixer.Sound("data/8bit_read2.mp3") # ★修正: 1591行目から移動、パスを data/ に変更
+        se_bomb = pg.mixer.Sound("data/8bit_read2.mp3")
+        se_powerup = pg.mixer.Sound("data/8bit_read2.mp3")
     except (pg.error, FileNotFoundError):
         print("Warning: BGMまたは効果音ファイルが見つかりません。")
 
@@ -1319,12 +1276,12 @@ def main():
     # ゲーム変数
     score = 0
     current_difficulty = "NORMAL" # デフォルト難易度
-    player = None # ★修正: player が未定義の可能性があるため None で初期化
-    boss = None # ★修正: boss が未定義の可能性があるため None で初期化
+    player = None # player が未定義の可能性があるため None で初期化
+    boss = None # boss が未定義の可能性があるため None で初期化
 
     # EX 関連タイマー
-    # transition_timer = 0 # EX_STAGE クラスが管理
-    # transition_duration = 60  # EX_STAGE クラスが管理
+    transition_timer = 0 # EX_STAGE クラスが管理
+    transition_duration = 60  # EX_STAGE クラスが管理
 
     ex_stage_manager = None
 
@@ -1332,7 +1289,7 @@ def main():
     item_spawn_interval = 5000  # 5秒
     last_item_spawn = pg.time.get_ticks()
 
-    # ★追加: ボム関連の変数
+    # ボム関連の変数
     bombs = 3 # 残りボム数
     bomb_active_area: BombArea | None = None # 現在アクティブなボムエリア
     
@@ -1357,7 +1314,7 @@ def main():
                 all_sprites = pg.sprite.Group()
                 player_bullets = pg.sprite.Group()
                 enemy_bullets = pg.sprite.Group()
-                items.empty() # ★修正: アイテムもクリア
+                items.empty() # アイテムもクリア
                 
                 # インスタンスを生成 (難易度を渡す)
                 player = Player(current_difficulty)
@@ -1365,8 +1322,8 @@ def main():
                 all_sprites.add(player, boss) # PlayerとBossもGroupに追加
                 
                 score = 0
-                bombs = 3 # ★修正: ボム数をリセット
-                bomb_active_area = None # ★修正: ボムエリアをリセット
+                bombs = 3 # ボム数をリセット
+                bomb_active_area = None # ボムエリアをリセット
                 game_state = "playing"  # 状態を "playing" に確定
                 continue  # 次のイベント処理をスキップ
             
@@ -1378,10 +1335,10 @@ def main():
                 if player and player.is_respawning and event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
                     player.respawn()
 
-                # ★修正: Tabキーでボム使用 (resultsから移動)
+                # Tabキーでボム使用 (resultsから移動)
                 if event.type == pg.KEYDOWN and event.key == pg.K_TAB:
                     # ボムが残っていて、かつ、現在アクティブなボムがない時のみ発動
-                    if player and bombs > 0 and bomb_active_area is None: # ★修正: playerがNoneでないか確認
+                    if player and bombs > 0 and bomb_active_area is None:
                         bombs -= 1
                         bomb_active_area = BombArea(player.rect.center)
                         if se_bomb:
@@ -1400,22 +1357,14 @@ def main():
                         if screen and player and boss and all_sprites is not None and \
                            player_bullets is not None and enemy_bullets is not None:
                             
-                            ex_stage_manager = EX_STAGE(screen, player, boss, all_sprites, 
-                                                        player_bullets, enemy_bullets, 
-                                                        se_hit, se_graze, se_bomb, bombs) # ★修正: se_bomb, bombs を渡す
+                            ex_stage_manager = EX_STAGE(screen, player, boss, all_sprites, player_bullets, enemy_bullets, se_hit, se_graze, se_bomb, bombs) # se_bomb, bombs を渡す
                             ex_stage_manager.start()
                             game_state = "ex_stage" # メインの状態を EX に移行
-
-                # ★修正: Tabキーの処理を playing に移動
-
 
             elif game_state == "game_over":
                 # ゲームオーバー画面でSPACEキーを押したら終了
                 if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
                     running = False
-
-
-        # 状態ごとの更新・描画処理
 
         if game_state == "playing":
             # Player や Boss が None の可能性 (初期化前) があるのでチェック
@@ -1445,7 +1394,6 @@ def main():
             items.update()
 
             # アイテム取得判定
-            # se_powerup = pg.mixer.Sound("sound/8bit_read2.mp3") # ★修正: main冒頭に移動したため削除
             collected_items = pg.sprite.spritecollide(player, items, True)
             if collected_items:
                 for item in collected_items:
@@ -1453,7 +1401,7 @@ def main():
                 if se_powerup:
                     se_powerup.play()
             
-            # ★追加: ボムの更新と敵弾消去
+            # ボムの更新と敵弾消去
             if bomb_active_area is not None:
                 bomb_active_area.update(player.rect.center)
                 # 範囲内の弾を消去し、スコア加算
@@ -1488,8 +1436,7 @@ def main():
             if not player.is_respawning:
                 
                 # GRAZE (かすり) 判定 (grazebox との衝突)
-                graze_list = pg.sprite.spritecollide(player, enemy_bullets, False, 
-                                                    lambda p, b: p.grazebox.colliderect(b.rect))
+                graze_list = pg.sprite.spritecollide(player, enemy_bullets, False, lambda p, b: p.grazebox.colliderect(b.rect))
                 
                 for bullet in graze_list:
                     # 置きレーザーが 'warning' 状態なら判定しない
@@ -1501,12 +1448,9 @@ def main():
                         if not player.hitbox.colliderect(bullet.rect):
                             score += 20 # GRAZEスコア20
                             bullet.grazed = True
-                            #if se_graze:
-                                #dse_graze.play()
 
                 # 被弾判定 (hitbox)
-                hit_bullets = pg.sprite.spritecollide(player, enemy_bullets, False, 
-                                                      lambda p, b: p.hitbox.colliderect(b.rect))
+                hit_bullets = pg.sprite.spritecollide(player, enemy_bullets, False, lambda p, b: p.hitbox.colliderect(b.rect))
 
                 # 置きレーザーの 'warning' 状態を除外
                 active_hit_bullets = []
@@ -1534,7 +1478,7 @@ def main():
                 for bullet in list(enemy_bullets):
                     bullet.kill()
                 
-                # ★追加: ステージ移行時にボムエリアを強制終了
+                # ステージ移行時にボムエリアを強制終了
                 bomb_active_area = None 
                 
                 if not boss.is_active:
@@ -1559,12 +1503,12 @@ def main():
             enemy_bullets.draw(screen)
             items.draw(screen)
             
-            # ★追加: ボムエリアの描画
+            # ボムエリアの描画
             if bomb_active_area is not None:
                 bomb_active_area.draw(screen)
 
             # UIの描画
-            draw_ui(screen, score, player.lives, boss, bombs) # ★修正: bombsを渡す
+            draw_ui(screen, score, player.lives, boss, bombs) # bombsを渡す
 
             # 復活待機中の表示
             if player.is_respawning:
@@ -1608,9 +1552,6 @@ def main():
             elif game_state == "quit":
                 # EXマネージャが終了を通知
                 running = False
-            
-            # game_state が "game_over" になった場合は、次のループで game_over 画面が描画される
-        
             
         clock.tick(FPS)
     pg.quit()
