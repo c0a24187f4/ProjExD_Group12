@@ -15,8 +15,8 @@ except NameError:
 
 
 # 画面設定
-SCREEN_WIDTH = 640
-SCREEN_HEIGHT = 720
+SCREEN_WIDTH = 600
+SCREEN_HEIGHT = 800
 FPS = 60
 
 # 色の定義
@@ -34,7 +34,6 @@ class PlayerBullet(pg.sprite.Sprite):
     def __init__(self, pos: tuple[int, int], target: pg.sprite.Sprite):
         super().__init__()
         try:
-            # (ダミー画像)
             self.image = pg.image.load("data/bullet_player.png").convert_alpha()
             self.image = pg.transform.scale(self.image, (12, 12))
         except pg.error:
@@ -91,7 +90,6 @@ class EnemyBullet(pg.sprite.Sprite):
     def __init__(self, pos: tuple[int, int], angle: float, speed: float):
         super().__init__()
         try:
-            # (ダミー画像)
             self.image = pg.image.load("data/bullet_enemy_small.png").convert_alpha()
             self.image = pg.transform.scale(self.image, (10, 10))
         except pg.error:
@@ -119,7 +117,6 @@ class EnemyLargeBullet(EnemyBullet):
     def __init__(self, pos: tuple[int, int], angle: float, speed: float):
         super().__init__(pos, angle, speed)
         try:
-            # (ダミー画像)
             self.image = pg.image.load("data/bullet_enemy_large.png").convert_alpha()
             self.image = pg.transform.scale(self.image, (25, 25))
         except pg.error:
@@ -135,7 +132,6 @@ class EnemyLaser(EnemyBullet):
     def __init__(self, pos: tuple[int, int], angle: float, speed: float):
         super().__init__(pos, angle, speed)
         try:
-            # (ダミー画像)
             self.original_image = pg.image.load("data/laser.png").convert_alpha()
             self.original_image = pg.transform.scale(self.original_image, (100, 5))  # 細長い画像
         except pg.error:
@@ -162,7 +158,6 @@ class EnemyDelayedLaser(pg.sprite.Sprite):
         self.state = "warning"  # 'warning' -> 'active' -> 'finished'
         
         try:
-            # (ダミー画像) 予告エフェクト
             self.warn_image = pg.image.load("data/laser_warning.png").convert_alpha()
             self.warn_image = pg.transform.scale(self.warn_image, (30, 300))
         except pg.error:
@@ -173,7 +168,6 @@ class EnemyDelayedLaser(pg.sprite.Sprite):
         self.warn_image.set_alpha(100) 
 
         try:
-            # (ダミー画像) 本体
             self.active_image = pg.image.load("data/laser.png").convert_alpha()
             self.active_image = pg.transform.scale(self.active_image, (30, 300))
         except pg.error:
@@ -212,7 +206,6 @@ class Player(pg.sprite.Sprite):
     def __init__(self):
         super().__init__()
         try:
-            # ダミー画像
             self.image = pg.image.load("data/player.png").convert_alpha()
             self.image = pg.transform.scale(self.image, (50, 50))  # サイズ調整
         except pg.error:
@@ -318,20 +311,19 @@ class Boss(pg.sprite.Sprite):
     def __init__(self):
         super().__init__()
         try:
-            # ダミー画像
             self.image = pg.image.load("data/boss.png").convert_alpha()
             self.image = pg.transform.scale(self.image, (150, 150))
         except pg.error:
             self.image = pg.Surface((100, 100))
             self.image.fill((255, 0, 128))
             
-        self.rect = self.image.get_rect(center=(SCREEN_WIDTH // 2, 150))
+        self.rect = self.image.get_rect(center=(SCREEN_WIDTH // 2, 200))
 
         # (名前, HP, 弾幕パターンメソッド)
         self.skill = [
-            ("ステージ1「通常弾幕」", 100, self.skill_pattern_1),
-            ("ステージ2「レーザー弾幕」", 150, self.skill_pattern_2),
-            ("ステージ3「全弾幕」", 200, self.skill_pattern_3),
+            ("STAGE1", 100, self.skill_pattern_1),
+            ("STAGE2", 150, self.skill_pattern_2),
+            ("STAGE3", 200, self.skill_pattern_3),
         ]
         
         self.current_skill_index = -1
@@ -510,8 +502,8 @@ def draw_ui(screen: pg.Surface, score: int, lives: int, boss: Boss):
         # HPバー
         hp_ratio = boss.hp / boss.get_current_skill_max_hp()
         hp_bar_width = (SCREEN_WIDTH - 40) * hp_ratio
-        pg.draw.rect(screen, (100, 100, 100), (20, 40, SCREEN_WIDTH - 40, 20))
-        pg.draw.rect(screen, (255, 0, 0), (20, 40, hp_bar_width, 20))
+        pg.draw.rect(screen, (100, 100, 100), (20,70, SCREEN_WIDTH - 40, 20))
+        pg.draw.rect(screen, (255, 0, 0), (20, 70, hp_bar_width, 20))
 
         # 経過時間
         elapsed_time = boss.get_current_elapsed_time()
