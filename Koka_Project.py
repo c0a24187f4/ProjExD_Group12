@@ -1234,11 +1234,6 @@ def main():
     enemy_bullets = pg.sprite.Group()
     items = pg.sprite.Group()
 
-    # インスタンスの作成
-    player = Player()
-    boss = Boss()
-    all_sprites.add(player, boss)
-
     # ゲーム変数
     score = 0
     current_difficulty = "NORMAL" # デフォルト難易度
@@ -1343,7 +1338,7 @@ def main():
             items.update()
 
             # アイテム取得判定
-            se_powerup = pg.mixer.Sound("sound/8bit詠唱2.mp3")
+            se_powerup = pg.mixer.Sound("sound/8bit_read2.mp3")
             collected_items = pg.sprite.spritecollide(player, items, True)
             if collected_items:
                 for item in collected_items:
@@ -1490,7 +1485,6 @@ def main():
         
             
         clock.tick(FPS)
-
     pg.quit()
     sys.exit()
 
