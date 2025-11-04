@@ -25,6 +25,7 @@ WHITE = (255, 255, 255)
 RED = (255, 0, 0)
 GREEN = (0, 255, 0)
 BLUE = (0, 0, 255)
+YELLOW = (255, 255, 0)  # 選択色用
 
 
 class PlayerBullet(pg.sprite.Sprite):
@@ -203,7 +204,7 @@ class Player(pg.sprite.Sprite):
     """
     自機クラス
     """
-    def __init__(self):
+    def __init__(self, difficulty: str): # 難易度を受け取る
         super().__init__()
         try:
             self.image = pg.image.load("data/player.png").convert_alpha()
@@ -222,7 +223,15 @@ class Player(pg.sprite.Sprite):
         self.grazebox = self.rect.inflate(-10, -10) 
 
         self.speed = 5
-        self.lives = 10
+        
+        # 難易度に応じて残機を変更
+        if difficulty == "EASY":
+            self.lives = 15
+        elif difficulty == "HARD":
+            self.lives = 5
+        else: # NORMAL (デフォルト)
+            self.lives = 10
+
         self.shoot_delay = 100  # ホーミング弾の発射間隔 (ms)
         self.last_shot = pg.time.get_ticks()
 
@@ -306,7 +315,7 @@ class Boss(pg.sprite.Sprite):
     """
     ボスクラス
     """
-    def __init__(self):
+    def __init__(self, difficulty: str):  # 難易度を受け取る
         super().__init__()
         try:
             self.image = pg.image.load("data/boss.png").convert_alpha()
@@ -316,37 +325,46 @@ class Boss(pg.sprite.Sprite):
             self.image.fill((255, 0, 128))
             
         self.rect = self.image.get_rect(center=(SCREEN_WIDTH // 2, 200))
+        self.difficulty = difficulty
 
-        # (名前, HP, 弾幕パターンメソッド)
+        # 難易度に応じてHPを設定
+        if difficulty == "EASY":
+            hp_list = [50, 75, 100]
+        elif difficulty == "HARD":
+            hp_list = [200, 300, 400]
+        else:  # NORMAL (デフォルト)
+            hp_list = [100, 150, 200]
+
+        # スキル情報 (名前, HP, 弾幕パターンメソッド)
         self.skill = [
-            ("STAGE1", 100, self.skill_pattern_1),
-            ("STAGE2", 150, self.skill_pattern_2),
-            ("STAGE3", 200, self.skill_pattern_3),
+            ("STAGE1", hp_list[0], self.skill_pattern_1),
+            ("STAGE2", hp_list[1], self.skill_pattern_2),
+            ("STAGE3", hp_list[2], self.skill_pattern_3),
         ]
         
         self.current_skill_index = -1
         self.hp = 0
-        self.skill_start_time = 0
-        self.clear_times = []
+        self.skill_start_time = 0  # スキル開始時間 (ms)
+        self.clear_times = []  # クリアタイム (秒) のリスト
         self.is_active = False
         self.pattern_timer = 0
         
-        # ランダム移動用の変数を追加
+        # ランダム移動用の変数
         self.move_timer = 0
         self.move_target_pos = self.rect.center
         self.move_speed = 2  # ボスの移動速度
 
-        self.next_skill()  # 最初のスペルカードを開始
+        self.next_skill()  # 最初のスキルを開始
 
     def next_skill(self):
         """
-        次のスペルカードに移行する
+        次のスキルに移行する
         """
         self.current_skill_index += 1
         if self.current_skill_index < len(self.skill):
             name, max_hp, pattern_func = self.skill[self.current_skill_index]
             self.hp = max_hp
-            self.skill_start_time = pg.time.get_ticks()
+            self.skill_start_time = pg.time.get_ticks() # 開始時間を記録
             self.current_pattern = pattern_func
             self.is_active = True
             self.pattern_timer = 0  # パターンタイマーリセット
@@ -424,14 +442,29 @@ class Boss(pg.sprite.Sprite):
         """
         ステージ1: 小弾 (小弾と大弾の全方位弾)
         """
-        if self.pattern_timer % 60 == 0:
-            density = 8
-            for i in range(density):
-                angle = (360 / density) * i + (self.pattern_timer / 10) + random.uniform(-10, 10)
+        # 難易度別設定
+        if self.difficulty == "EASY":
+            large_bullet_freq = 80
+            large_bullet_density = 6
+            small_bullet_freq = 20
+        elif self.difficulty == "HARD":
+            large_bullet_freq = 40
+            large_bullet_density = 10
+            small_bullet_freq = 8
+        else: # NORMAL
+            large_bullet_freq = 60
+            large_bullet_density = 8
+            small_bullet_freq = 12
+
+        # 大弾
+        if self.pattern_timer % large_bullet_freq == 0:
+            for i in range(large_bullet_density):
+                angle = (360 / large_bullet_density) * i + (self.pattern_timer / 10) + random.uniform(-10, 10)
                 speed = 2
                 bullets_group.add(EnemyLargeBullet(self.rect.center, angle, speed))
         
-        if self.pattern_timer % 12 == 0:
+        # 小弾 (自機狙い)
+        if self.pattern_timer % small_bullet_freq == 0:
             spread = 10
             angle_to_player = math.degrees(math.atan2(player_pos[1] - self.rect.centery, 
                                                      player_pos[0] - self.rect.centerx))
@@ -444,14 +477,29 @@ class Boss(pg.sprite.Sprite):
         """
         ステージ2: レーザー (細レーザーと置きレーザー)
         """
-        if self.pattern_timer % 90 == 0:
-            count = 2
-            for _ in range(count):
+        # 難易度別設定
+        if self.difficulty == "EASY":
+            delayed_laser_freq = 120
+            delayed_laser_count = 1
+            laser_freq = 30
+        elif self.difficulty == "HARD":
+            delayed_laser_freq = 60
+            delayed_laser_count = 3
+            laser_freq = 12
+        else: # NORMAL
+            delayed_laser_freq = 90
+            delayed_laser_count = 2
+            laser_freq = 18
+
+        # 置きレーザー
+        if self.pattern_timer % delayed_laser_freq == 0:
+            for _ in range(delayed_laser_count):
                 x = random.randint(50, SCREEN_WIDTH - 50)
                 y = random.randint(SCREEN_HEIGHT // 2, SCREEN_HEIGHT - 50)
                 bullets_group.add(EnemyDelayedLaser((x, y), delay=30, duration=60))
 
-        if self.pattern_timer % 18 == 0:
+        # 細レーザー (自機狙い)
+        if self.pattern_timer % laser_freq == 0:
             angle_to_player = math.degrees(math.atan2(player_pos[1] - self.rect.centery, 
                                                      player_pos[0] - self.rect.centerx))
             bullets_group.add(EnemyLaser(self.rect.center, angle_to_player + random.uniform(-15, 15), 8))
@@ -460,20 +508,107 @@ class Boss(pg.sprite.Sprite):
         """
         ステージ3: 複合弾幕 (全種類使用)
         """
-        if self.pattern_timer % 70 == 0:
-            density = 6
-            for i in range(density):
-                angle = (360 / density) * i - (self.pattern_timer / 20) + random.uniform(-5, 5)
+        # 難易度別設定 (Normal基準)
+        if self.difficulty == "EASY":
+            p1_freq = 100
+            p1_density = 5
+            p2_freq = 40
+            p3_freq = 70
+        elif self.difficulty == "HARD":
+            p1_freq = 50
+            p1_density = 8
+            p2_freq = 15
+            p3_freq = 35
+        else: # NORMAL
+            p1_freq = 70
+            p1_density = 6
+            p2_freq = 25
+            p3_freq = 50
+
+        # 全方位弾
+        if self.pattern_timer % p1_freq == 0:
+            for i in range(p1_density):
+                angle = (360 / p1_density) * i - (self.pattern_timer / 20) + random.uniform(-5, 5)
                 bullets_group.add(EnemyLargeBullet(self.rect.center, angle, 2))
         
-        if self.pattern_timer % 25 == 0:
+        # 自機狙い
+        if self.pattern_timer % p2_freq == 0:
             angle_to_player = math.degrees(math.atan2(player_pos[1] - self.rect.centery, player_pos[0] - self.rect.centerx))
             bullets_group.add(EnemyBullet(self.rect.center, angle_to_player + random.uniform(-10, 10), 4))
             
-        if self.pattern_timer % 50 == 0:
+        # 置きレーザー
+        if self.pattern_timer % p3_freq == 0:
             x = random.randint(50, SCREEN_WIDTH - 50)
             y = random.randint(SCREEN_HEIGHT // 2, SCREEN_HEIGHT - 50)
             bullets_group.add(EnemyDelayedLaser((x, y), delay=30, duration=30))
+
+
+class LevelChange:
+    """
+    難易度選択画面のロジックと描画を管理するクラス
+    """
+    def __init__(self):
+        self.levels = ["EASY", "NORMAL", "HARD"]
+        self.selected_index = 1  # 初期選択は NORMAL
+        
+        # 描画用のフォントをあらかじめ読み込む
+        self.font_large = pg.font.Font(None, 60)
+        self.font_medium = pg.font.Font(None, 45)
+        self.font_small = pg.font.Font(None, 30)
+    
+    def handle_event(self, event: pg.event.Event, current_game_state: str):
+        """
+        イベントを処理し、次のゲーム状態と選択された難易度を返す
+        戻り値: (next_game_state, selected_difficulty_str or None)
+        """
+        next_state = current_game_state
+        selected_difficulty = None
+        
+        if event.type != pg.KEYDOWN:
+            # キー入力以外は状態を変更しない
+            return next_state, selected_difficulty
+
+        # プレイ中にEscで難易度選択に戻る
+        if current_game_state == "playing" and event.key == pg.K_ESCAPE:
+            next_state = "difficulty_select"
+        
+        # 難易度選択中の操作
+        elif current_game_state == "difficulty_select":
+            if event.key == pg.K_UP:
+                self.selected_index = max(0, self.selected_index - 1)
+            elif event.key == pg.K_DOWN:
+                self.selected_index = min(len(self.levels) - 1, self.selected_index + 1)
+            elif event.key == pg.K_SPACE:  # SPACEキー
+                next_state = "playing_start"  # ゲーム開始を通知する
+                selected_difficulty = self.levels[self.selected_index]
+                
+        return next_state, selected_difficulty
+
+    def draw(self, screen: pg.Surface):
+        """
+        難易度選択画面を描画する
+        """
+        screen.fill(BLACK)
+
+        title = self.font_large.render("Select Difficulty", True, WHITE)
+        screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 150))
+
+        y_offset = 300
+        for i, level in enumerate(self.levels):
+            if i == self.selected_index:
+                color = YELLOW  # 選択中の色
+            else:
+                color = WHITE
+            
+            text = self.font_medium.render(level, True, color)
+            screen.blit(text, (SCREEN_WIDTH // 2 - text.get_width() // 2, y_offset))
+            y_offset += 60
+        
+        y_offset += 100
+        start_text = self.font_small.render("Press ENTER to Start", True, WHITE)
+        screen.blit(start_text, (SCREEN_WIDTH // 2 - start_text.get_width() // 2, y_offset))
+
+        pg.display.flip()
 
 
 def draw_ui(screen: pg.Surface, score: int, lives: int, boss: Boss):
@@ -492,7 +627,6 @@ def draw_ui(screen: pg.Surface, score: int, lives: int, boss: Boss):
 
     # ボスHP
     if boss.is_active:
-        # スペルカード名
         skill_name = boss.get_current_skill_name()
         skill_text = font.render(skill_name, True, WHITE)
         screen.blit(skill_text, (SCREEN_WIDTH // 2 - skill_text.get_width() // 2, 10))
@@ -500,7 +634,7 @@ def draw_ui(screen: pg.Surface, score: int, lives: int, boss: Boss):
         # HPバー
         hp_ratio = boss.hp / boss.get_current_skill_max_hp()
         hp_bar_width = (SCREEN_WIDTH - 40) * hp_ratio
-        pg.draw.rect(screen, (100, 100, 100), (20,70, SCREEN_WIDTH - 40, 20))
+        pg.draw.rect(screen, (100, 100, 100), (20, 70, SCREEN_WIDTH - 40, 20))
         pg.draw.rect(screen, (255, 0, 0), (20, 70, hp_bar_width, 20))
 
         # 経過時間
@@ -562,7 +696,6 @@ def main():
     pg.display.set_caption("某弾幕シューティング風ボスステージ")
     clock = pg.time.Clock()
 
-    #  サウンドの読み込み (資料)
     try:
         # BGMの読み込みと再生 (無限ループ)
         pg.mixer.music.load("data/bgm.mp3")
@@ -576,20 +709,20 @@ def main():
         se_hit = None
         se_graze = None
 
-    # スプライトグループの作成
-    all_sprites = pg.sprite.Group()
-    player_bullets = pg.sprite.Group()
-    enemy_bullets = pg.sprite.Group()
-
-    # インスタンスの作成
-    player = Player()
-    boss = Boss()
-    all_sprites.add(player, boss)
-
     # ゲーム変数
-    score = 0
-    game_state = "playing"
+    # 難易度管理クラスをインスタンス化
+    level_manager = LevelChange()
+    
+    game_state = "difficulty_select"  # 起動時に難易度選択から開始
     running = True
+
+    # スプライトグループとインスタンスをNoneで初期化
+    all_sprites = None
+    player_bullets = None
+    enemy_bullets = None
+    player = None
+    boss = None
+    score = 0
 
     # メインループ
     while running:
@@ -599,25 +732,43 @@ def main():
             if event.type == pg.QUIT:
                 running = False
             
+            # 難易度変更関連のイベント処理
+            next_state, selected_diff = level_manager.handle_event(event, game_state)
+            game_state = next_state
+            
+            # ゲーム開始のシグナルを受け取った場合
+            if game_state == "playing_start":
+                current_difficulty = selected_diff
+                
+                # スプライトグループを初期化
+                all_sprites = pg.sprite.Group()
+                player_bullets = pg.sprite.Group()
+                enemy_bullets = pg.sprite.Group()
+                
+                # インスタンスを生成 (難易度を渡す)
+                player = Player(current_difficulty)
+                boss = Boss(current_difficulty)
+                all_sprites.add(player, boss)
+                
+                score = 0
+                game_state = "playing"  # 状態を "playing" に確定
+                continue  # 次のイベント処理をスキップ
+
+            # その他のイベント処理
             if game_state == "playing":
                 # プレイヤー復活処理
-                if player.is_respawning and event.type == pg.KEYDOWN:
-                    if event.key == pg.K_SPACE:
-                        player.respawn()
+                if player.is_respawning and event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
+                    player.respawn()
 
             elif game_state == "game_over":
                 # ゲームオーバー画面でSPACEキーを押したら終了
-                if event.type == pg.KEYDOWN:
-                    if event.key == pg.K_SPACE:
-                        running = False
+                if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
+                    running = False
 
             elif game_state == "results":
                 # リザルト画面でSPACEキーを押したら終了
-                if event.type == pg.KEYDOWN:
-                    if event.key == pg.K_SPACE:
-                        running = False
-
-        # 状態ごとの更新・描画処理
+                if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
+                    running = False
 
         if game_state == "playing":
             # 更新処理
@@ -724,6 +875,10 @@ def main():
         elif game_state == "results":
             # リザルト画面描画
             draw_results(screen, boss.clear_times)
+        
+        elif game_state == "difficulty_select":
+            # 難易度選択画面描画
+            level_manager.draw(screen) # クラスの描画メソッドを呼び出す
 
         clock.tick(FPS)
 
