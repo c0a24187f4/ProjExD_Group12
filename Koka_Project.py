@@ -1530,10 +1530,8 @@ def main():
                     game_state = "results"  # リザルト画面に移行
 
             # 描画処理
-            if background_image:
-                screen.blit(background_image, (0, 0)) # 背景画像を描画
-            else:
-                screen.fill(BLACK) # 背景画像がなければ黒で塗りつぶす
+            
+            screen.fill(BLACK) # 背景画像がなければ黒で塗りつぶす
             
             # all_sprites.draw(screen) # PlayerとBossも描画
             # Player, Boss を all_sprites に入れた場合の描画
