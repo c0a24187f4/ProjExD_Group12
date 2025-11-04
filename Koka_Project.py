@@ -36,7 +36,7 @@ class PowerItem(pg.sprite.Sprite):
         # アイテム画像
         try:
             self.image = pg.image.load("data/PW_Item.png").convert_alpha()
-            self.image = pg.transform.scale(self.image, (300, 300))
+            self.image = pg.transform.scale(self.image, (75, 75))
         except pg.error:
             self.image = pg.Surface((10, 10))
             self.image.fill((0, 255, 255))
@@ -868,7 +868,7 @@ def draw_ui(screen: pg.Surface, score: int, lives: int, boss: Boss, bomb: int): 
     
     # ボム数
     bomb_text = font.render(f"Bomb: {bomb}", True, (255, 165, 0))
-    screen.blit(bomb_text, (10, 70)) 
+    screen.blit(bomb_text, (120, 40)) 
 
     # ボスHP
     if boss and getattr(boss, "is_active", False): # bossがNoneでないことも確認
@@ -880,9 +880,9 @@ def draw_ui(screen: pg.Surface, score: int, lives: int, boss: Boss, bomb: int): 
         max_hp = boss.get_current_skill_max_hp()
         hp_ratio = boss.hp / max_hp if max_hp > 0 else 0
         hp_bar_width = max(0, (SCREEN_WIDTH - 40) * hp_ratio)
-        pg.draw.rect(screen, (100, 100, 100), (20,  40, SCREEN_WIDTH - 40, 20))
+        pg.draw.rect(screen, (100, 100, 100), (20,  70, SCREEN_WIDTH - 40, 20))
         hp_color = (255, 0, 255) if getattr(boss, "is_ex_stage", False) else (255, 0, 0)
-        pg.draw.rect(screen, hp_color, (20, 40, hp_bar_width, 20))
+        pg.draw.rect(screen, hp_color, (20, 70, hp_bar_width, 20))
 
         # 経過時間
         elapsed_time = boss.get_current_elapsed_time()
