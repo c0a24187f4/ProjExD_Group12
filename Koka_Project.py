@@ -30,11 +30,91 @@ BLUE = (0, 0, 255)
 YELLOW = (255, 255, 0)  # 選択色用
 
 
+class PowerItem(pg.sprite.Sprite):
+    """
+    パワーアップアイテム
+    """
+    def __init__(self, pos: tuple[int, int]):
+        super().__init__()
+        self.speed = 3
+        
+        # アイテム画像
+        try:
+            self.image = pg.image.load("data/PW_Item.png").convert_alpha()
+            self.image = pg.transform.scale(self.image, (300, 300))
+        except pg.error:
+            self.image = pg.Surface((10, 10))
+            self.image.fill((0, 255, 255))
+                
+        font = pg.font.Font(None, 28)
+        text_surf = font.render(" ", True, WHITE)
+        text_rect = text_surf.get_rect(center=(15, 15))
+        self.image.blit(text_surf, text_rect)
+        
+        self.rect = self.image.get_rect(center=pos)
+        
+        # 移動パターン用
+        self.move_timer = 0
+        self.amplitude = 20
+        self.frequency = 0.08
+        self.start_x = pos[0]
+
+    def update(self):
+        # 下に移動しながら左右に揺れる
+        self.move_timer += 1
+        self.rect.y += self.speed
+        self.rect.x = self.start_x + math.sin(self.move_timer * self.frequency) * self.amplitude
+        
+        # 画面下に出たら消滅
+        if self.rect.top > SCREEN_HEIGHT:
+            self.kill()
+
+
+class PowerItem(pg.sprite.Sprite):
+    """
+    パワーアップアイテム
+    """
+    def __init__(self, pos: tuple[int, int]):
+        super().__init__()
+        self.speed = 3
+        
+        # アイテム画像
+        try:
+            self.image = pg.image.load("data/PW_Item.png").convert_alpha()
+            self.image = pg.transform.scale(self.image, (300, 300))
+        except pg.error:
+            self.image = pg.Surface((10, 10))
+            self.image.fill((0, 255, 255))
+                
+        font = pg.font.Font(None, 28)
+        text_surf = font.render(" ", True, WHITE)
+        text_rect = text_surf.get_rect(center=(15, 15))
+        self.image.blit(text_surf, text_rect)
+        
+        self.rect = self.image.get_rect(center=pos)
+        
+        # 移動パターン用
+        self.move_timer = 0
+        self.amplitude = 20
+        self.frequency = 0.08
+        self.start_x = pos[0]
+
+    def update(self):
+        # 下に移動しながら左右に揺れる
+        self.move_timer += 1
+        self.rect.y += self.speed
+        self.rect.x = self.start_x + math.sin(self.move_timer * self.frequency) * self.amplitude
+        
+        # 画面下に出たら消滅
+        if self.rect.top > SCREEN_HEIGHT:
+            self.kill()
+
+
 class PlayerBullet(pg.sprite.Sprite):
     """
     自機の弾 (ホーミング)
     """
-    def __init__(self, pos: tuple[int, int], target: pg.sprite.Sprite):
+    def __init__(self, pos: tuple[int, int], target: pg.sprite.Sprite,damage: int = 1):
         super().__init__()
         try:
             self.image = pg.image.load("data/bullet_player.png").convert_alpha()
@@ -47,6 +127,7 @@ class PlayerBullet(pg.sprite.Sprite):
         self.target = target
         self.speed = 8
         self.turn_speed = 3  # ホーミングの追尾性能 (角度)
+        self.damage = damage
 
         # 初期ベクトル (とりあえず上)
         self.dx = 0
@@ -261,12 +342,19 @@ class Player(pg.sprite.Sprite):
         self.shoot_delay = 100  # ホーミング弾の発射間隔 (ms)
         self.last_shot = pg.time.get_ticks()
 
-        # 復活関連
+        # 復活関連  
         self.is_respawning = False
         self.respawn_timer = 0
         self.respawn_duration = 10000  # 10秒
         self.blink_timer = 0
         self.is_visible = True
+
+        # パワーアップ関連 (時限式)
+        self.power_level = 0  # 0=通常
+        self.max_power_level = 1
+        self.item_count = 0
+        self.items_per_level = 5
+        self.is_powered_up = False
 
     def update(self, keys: pg.key.ScancodeWrapper, bullets_group: pg.sprite.Group, target_boss: pg.sprite.Sprite):
         """
@@ -284,7 +372,7 @@ class Player(pg.sprite.Sprite):
             self.is_visible = self.blink_timer < 10
             self.image.set_alpha(255 if self.is_visible else 0)
             return
-
+        
         # 復活完了後、透明度を戻す
         self.image.set_alpha(255)
         self.is_visible = True 
@@ -319,9 +407,8 @@ class Player(pg.sprite.Sprite):
         now = pg.time.get_ticks()
         if now - self.last_shot > self.shoot_delay:
             self.last_shot = now
-            
-            new_bullet = PlayerBullet(self.rect.center, target_boss)
-            bullets_group.add(new_bullet)
+            damage = self.power_level + 1
+            bullets_group.add(PlayerBullet(self.rect.center, target_boss, damage))
 
     def hit(self):
         """
@@ -342,7 +429,16 @@ class Player(pg.sprite.Sprite):
         self.rect.center = (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 50)
         self.hitbox.center = self.rect.center
         self.grazebox.center = self.rect.center
-
+    def add_power_item(self):
+        """
+        パワーアイテム取得時の処理
+        アイテムを取るとレベルが1上がり、5秒の効果時間がリセットされる
+        """
+        # レベルアップ
+        self.item_count += 1
+        if self.item_count >= self.items_per_level and self.power_level < self.max_power_level:
+            self.power_level += 1
+            self.item_count = 0
 
 class Boss(pg.sprite.Sprite):
     """
@@ -755,7 +851,7 @@ def draw_ui(screen: pg.Surface, score: int, lives: int, boss: Boss):
     # スコア
     score_text = font.render(f"Score: {score}", True, WHITE)
     screen.blit(score_text, (10, 10))
-    
+
     # 残機
     lives_text = font.render(f"Lives: {lives}", True, WHITE)
     screen.blit(lives_text, (10, 40))
@@ -1119,7 +1215,7 @@ def main():
         pg.mixer.music.load("data/bgm.mp3")
         pg.mixer.music.play(loops=-1) #
 
-        # 効果音の読み込み
+        # 効果音の読み込みs
         se_hit = pg.mixer.Sound("data/se_hit.wav") #
         se_graze = pg.mixer.Sound("data/se_graze.wav")
     except (pg.error, FileNotFoundError):
@@ -1132,12 +1228,13 @@ def main():
     game_state = "difficulty_select"  # 起動時に難易度選択から開始
     running = True
 
-    # スプライトグループとインスタンスをNoneで初期化
-    all_sprites = None
-    player_bullets = None
-    enemy_bullets = None
-    player = None
-    boss = None
+    # スプライトグループの作成
+    all_sprites = pg.sprite.Group()
+    player_bullets = pg.sprite.Group()
+    enemy_bullets = pg.sprite.Group()
+    items = pg.sprite.Group()
+
+    # ゲーム変数
     score = 0
     current_difficulty = "NORMAL" # デフォルト難易度
 
@@ -1147,9 +1244,12 @@ def main():
 
     ex_stage_manager = None
 
+    # アイテム生成タイマー
+    item_spawn_interval = 5000  # 5秒
+    last_item_spawn = pg.time.get_ticks()
+
     # メインループ
     while running:
-        
         events = pg.event.get()
         
         for event in events: # 個々のイベント処理 (QUITなど)
@@ -1215,6 +1315,14 @@ def main():
             if player is None or boss is None:
                  game_state = "difficulty_select" # 初期化されてないなら選択画面に戻る
                  continue
+            now = pg.time.get_ticks()
+            if now - last_item_spawn > item_spawn_interval:
+                last_item_spawn = now
+                # 画面上部のランダムな位置に生成
+                spawn_x = random.randint(50, SCREEN_WIDTH - 50)
+                spawn_y = -20
+                new_item = PowerItem((spawn_x, spawn_y))
+                items.add(new_item)
 
             # 更新処理
             keys = pg.key.get_pressed()
@@ -1227,6 +1335,16 @@ def main():
 
             # all_sprites.update() # PlayerとBossは個別Updateしたので不要
             player_bullets.update()
+            items.update()
+
+            # アイテム取得判定
+            se_powerup = pg.mixer.Sound("sound/8bit_read2.mp3")
+            collected_items = pg.sprite.spritecollide(player, items, True)
+            if collected_items:
+                for item in collected_items:
+                    player.add_power_item()
+                if se_powerup:
+                    se_powerup.play()
             
             # 敵弾の更新 (画面外に出た弾を消去し、スコア加算)
             avoided_bullets_score = 0
@@ -1241,12 +1359,13 @@ def main():
             # 当たり判定
 
             # 自機弾 vs ボス
-            if boss.is_active:
-                hits = pg.sprite.spritecollide(boss, player_bullets, True) # Trueで弾を消す
-                if hits:
-                    damage = len(hits)
-                    boss.hit(damage)
-                    score += damage # 1ダメージにつきスコア1UP
+            hits = pg.sprite.spritecollide(boss, player_bullets, True)
+            if hits:
+                # 1ダメージ = 1ヒットとして処理
+                total_damage = sum(bullet.damage for bullet in hits)
+                boss.hit(total_damage)
+                # 1ダメージにつきスコア1UP
+                score += total_damage
 
             # 敵弾 vs 自機 (被弾 & GRAZE)
             if not player.is_respawning:
@@ -1314,6 +1433,7 @@ def main():
 
             player_bullets.draw(screen)
             enemy_bullets.draw(screen)
+            items.draw(screen)
 
             # UIの描画
             draw_ui(screen, score, player.lives, boss)
@@ -1365,7 +1485,6 @@ def main():
         
             
         clock.tick(FPS)
-
     pg.quit()
     sys.exit()
 
