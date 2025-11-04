@@ -572,6 +572,7 @@ def main():
     pg.display.set_caption("某弾幕シューティング風ボスステージ")
     clock = pg.time.Clock()
 
+    #背景の追加した
     try:
         background_image = pg.image.load("data/HAIKEI.png").convert()
         # 画面サイズに合わせて背景画像をスケール (必要に応じて)
