@@ -70,46 +70,6 @@ class PowerItem(pg.sprite.Sprite):
             self.kill()
 
 
-class PowerItem(pg.sprite.Sprite):
-    """
-    パワーアップアイテム
-    """
-    def __init__(self, pos: tuple[int, int]):
-        super().__init__()
-        self.speed = 3
-        
-        # アイテム画像
-        try:
-            self.image = pg.image.load("data/PW_Item.png").convert_alpha()
-            self.image = pg.transform.scale(self.image, (300, 300))
-        except pg.error:
-            self.image = pg.Surface((10, 10))
-            self.image.fill((0, 255, 255))
-                
-        font = pg.font.Font(None, 28)
-        text_surf = font.render(" ", True, WHITE)
-        text_rect = text_surf.get_rect(center=(15, 15))
-        self.image.blit(text_surf, text_rect)
-        
-        self.rect = self.image.get_rect(center=pos)
-        
-        # 移動パターン用
-        self.move_timer = 0
-        self.amplitude = 20
-        self.frequency = 0.08
-        self.start_x = pos[0]
-
-    def update(self):
-        # 下に移動しながら左右に揺れる
-        self.move_timer += 1
-        self.rect.y += self.speed
-        self.rect.x = self.start_x + math.sin(self.move_timer * self.frequency) * self.amplitude
-        
-        # 画面下に出たら消滅
-        if self.rect.top > SCREEN_HEIGHT:
-            self.kill()
-
-
 class PlayerBullet(pg.sprite.Sprite):
     """
     自機の弾 (ホーミング)
@@ -916,7 +876,7 @@ class LevelChange:
         pg.display.flip()
 
 
-def draw_ui(screen: pg.Surface, score: int, lives: int, boss: Boss, bomb: BombArea):
+def draw_ui(screen: pg.Surface, score: int, lives: int, boss: Boss, bomb: int): # ★引数 bomb を BombArea から int に修正
     """
     UI（スコア、残機、ボスHP、ボム数など）を描画する
     """
@@ -1066,7 +1026,7 @@ class EX_STAGE:
     """
     def __init__(self, screen: pg.Surface, player: Player, boss: Boss, 
                  all_sprites: pg.sprite.Group, player_bullets: pg.sprite.Group, 
-                 enemy_bullets: pg.sprite.Group, se_hit, se_graze):
+                 enemy_bullets: pg.sprite.Group, se_hit, se_graze, se_bomb, bombs: int): # ★修正: se_bomb, bombs を追加
         
         # 必要なオブジェクト参照
         self.screen = screen
@@ -1079,6 +1039,7 @@ class EX_STAGE:
         # 効果音
         self.se_hit = se_hit
         self.se_graze = se_graze
+        self.se_bomb = se_bomb # ★修正: ボム効果音を保持
         
         # 内部状態管理
         # "transition_start" -> "playing" -> "transition_clear" or "transition_failed" -> "results"
@@ -1090,6 +1051,8 @@ class EX_STAGE:
         
         # EX専用スコア
         self.score = 0
+        self.bombs = bombs # ★修正: ボム数を保持
+        self.bomb_active_area: BombArea | None = None # ★修正: EX用ボムエリア
 
     def start(self):
         """
@@ -1132,17 +1095,34 @@ class EX_STAGE:
         # EXステージプレイ中
         elif self.internal_state == "playing":
             
-            # イベント処理 (復活)
+            # イベント処理 (復活・ボム)
             for event in events:
                 if self.player.is_respawning and event.type == pg.KEYDOWN:
                     if event.key == pg.K_SPACE:
                         self.player.respawn()
+
+                # ★修正: EXステージ中のボム使用
+                if event.type == pg.KEYDOWN and event.key == pg.K_TAB:
+                    if self.bombs > 0 and self.bomb_active_area is None:
+                        self.bombs -= 1
+                        self.bomb_active_area = BombArea(self.player.rect.center)
+                        if self.se_bomb:
+                            self.se_bomb.set_volume(0.5)
+                            self.se_bomb.play()
 
             # 更新処理
             self.player.update(keys, self.player_bullets, self.boss)
             if self.boss.is_active:
                 self.boss.update(self.enemy_bullets, self.player.rect.center)
             self.player_bullets.update()
+
+            # ★修正: ボムエリアの更新
+            if self.bomb_active_area is not None:
+                self.bomb_active_area.update(self.player.rect.center)
+                killed_bullets = self.bomb_active_area.check_collision_and_kill(self.enemy_bullets)
+                self.score += killed_bullets * 1 # ボムで消した弾は1点
+                if not self.bomb_active_area.is_active:
+                    self.bomb_active_area = None
 
             # 敵弾の更新 (画面外消去とスコア)
             avoided_bullets_score = 0
@@ -1158,7 +1138,7 @@ class EX_STAGE:
             if self.boss.is_active:
                 hits = pg.sprite.spritecollide(self.boss, self.player_bullets, True)
                 if hits:
-                    damage = len(hits)
+                    damage = len(hits) # ★修正: パワーアップ未対応（元コード通り）
                     self.boss.hit(damage)
                     self.score += damage
             
@@ -1190,6 +1170,7 @@ class EX_STAGE:
                     if self.se_hit: self.se_hit.play()
                     self.player.hit()
                     self.enemy_bullets.empty() # 弾幕全消去
+                    self.bomb_active_area = None # ★修正: 被弾時にボム消去
                     
                     if self.player.lives <= 0:
                         self.internal_state = "transition_failed" # EX失敗
@@ -1198,6 +1179,7 @@ class EX_STAGE:
             # ステージ移行判定 (ボス撃破)
             if self.boss.check_skill_transition():
                 self.enemy_bullets.empty()
+                self.bomb_active_area = None # ★修正: ステージ移行時にボム消去
                 if not self.boss.is_active:
                     self.internal_state = "transition_clear" # EXクリア
                     self.transition_timer = 0
@@ -1244,8 +1226,12 @@ class EX_STAGE:
             self.player_bullets.draw(self.screen)
             self.enemy_bullets.draw(self.screen)
             
+            # ★修正: ボムエリアの描画
+            if self.bomb_active_area is not None:
+                self.bomb_active_area.draw(self.screen)
+
             # UI描画 (EX専用スコアを使用)
-            draw_ui(self.screen, self.score, self.player.lives, self.boss)
+            draw_ui(self.screen, self.score, self.player.lives, self.boss, self.bombs) # ★修正: self.bombs を渡す
             
             # 復活待機中の表示
             if self.player.is_respawning:
@@ -1289,6 +1275,8 @@ def main():
     # BGMと効果音を None で初期化
     se_hit = None
     se_graze = None
+    se_bomb = None # ★修正: Noneで初期化
+    se_powerup = None # ★修正: Noneで初期化
     try:
         # BGM の読み込みと再生 (無限ループ)
         pg.mixer.music.load("data/bgm.mp3")
@@ -1297,7 +1285,8 @@ def main():
         # 効果音の読み込みs
         se_hit = pg.mixer.Sound("data/se_hit.wav") #
         se_graze = pg.mixer.Sound("data/se_graze.wav")
-        se_bomb = pg.mixer.Sound("sound/8bit_read2.mp3")
+        se_bomb = pg.mixer.Sound("data/8bit_read2.mp3") # ★修正: パスを data/ に変更
+        se_powerup = pg.mixer.Sound("data/8bit_read2.mp3") # ★修正: 1591行目から移動、パスを data/ に変更
     except (pg.error, FileNotFoundError):
         print("Warning: BGMまたは効果音ファイルが見つかりません。")
 
@@ -1317,6 +1306,8 @@ def main():
     # ゲーム変数
     score = 0
     current_difficulty = "NORMAL" # デフォルト難易度
+    player = None # ★修正: player が未定義の可能性があるため None で初期化
+    boss = None # ★修正: boss が未定義の可能性があるため None で初期化
 
     # EX 関連タイマー
     # transition_timer = 0 # EX_STAGE クラスが管理
@@ -1338,7 +1329,7 @@ def main():
         events = pg.event.get()
         
         # イベント処理
-        for event in pg.event.get():
+        for event in events:
             if event.type == pg.QUIT:
                 running = False
             
@@ -1353,6 +1344,7 @@ def main():
                 all_sprites = pg.sprite.Group()
                 player_bullets = pg.sprite.Group()
                 enemy_bullets = pg.sprite.Group()
+                items.empty() # ★修正: アイテムもクリア
                 
                 # インスタンスを生成 (難易度を渡す)
                 player = Player(current_difficulty)
@@ -1360,6 +1352,8 @@ def main():
                 all_sprites.add(player, boss) # PlayerとBossもGroupに追加
                 
                 score = 0
+                bombs = 3 # ★修正: ボム数をリセット
+                bomb_active_area = None # ★修正: ボムエリアをリセット
                 game_state = "playing"  # 状態を "playing" に確定
                 continue  # 次のイベント処理をスキップ
             
@@ -1370,6 +1364,17 @@ def main():
                 # プレイヤー復活処理
                 if player and player.is_respawning and event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
                     player.respawn()
+
+                # ★修正: Tabキーでボム使用 (resultsから移動)
+                if event.type == pg.KEYDOWN and event.key == pg.K_TAB:
+                    # ボムが残っていて、かつ、現在アクティブなボムがない時のみ発動
+                    if player and bombs > 0 and bomb_active_area is None: # ★修正: playerがNoneでないか確認
+                        bombs -= 1
+                        bomb_active_area = BombArea(player.rect.center)
+                        if se_bomb:
+                            # 効果音は音量が大きくなりがちなので、適宜音量調整を入れる
+                            se_bomb.set_volume(0.5) 
+                            se_bomb.play()
 
             elif game_state == "results":
                 # クリア画面での操作: SPACE で終了、CTRL で EX 突入
@@ -1384,20 +1389,11 @@ def main():
                             
                             ex_stage_manager = EX_STAGE(screen, player, boss, all_sprites, 
                                                         player_bullets, enemy_bullets, 
-                                                        se_hit, se_graze)
+                                                        se_hit, se_graze, se_bomb, bombs) # ★修正: se_bomb, bombs を渡す
                             ex_stage_manager.start()
                             game_state = "ex_stage" # メインの状態を EX に移行
 
-                # ★追加: Tabキーでボム使用
-                if event.type == pg.KEYDOWN and event.key == pg.K_TAB:
-                    # ボムが残っていて、かつ、現在アクティブなボムがない時のみ発動
-                    if bombs > 0 and bomb_active_area is None: 
-                        bombs -= 1
-                        bomb_active_area = BombArea(player.rect.center)
-                        if se_bomb:
-                            # 効果音は音量が大きくなりがちなので、適宜音量調整を入れる
-                            se_bomb.set_volume(0.5) 
-                            se_bomb.play()
+                # ★修正: Tabキーの処理を playing に移動
 
 
             elif game_state == "game_over":
@@ -1436,7 +1432,7 @@ def main():
             items.update()
 
             # アイテム取得判定
-            se_powerup = pg.mixer.Sound("sound/8bit_read2.mp3")
+            # se_powerup = pg.mixer.Sound("sound/8bit_read2.mp3") # ★修正: main冒頭に移動したため削除
             collected_items = pg.sprite.spritecollide(player, items, True)
             if collected_items:
                 for item in collected_items:
@@ -1602,5 +1598,6 @@ def main():
         clock.tick(FPS)
     pg.quit()
     sys.exit()
+    
 if __name__ == "__main__":
     main()
