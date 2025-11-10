@@ -5,15 +5,11 @@ import math
 import random
 from typing import Set, List, Tuple
 
-# 資料に基づく必須記述
-# スクリプトのディレクトリをワーキングディレクトリに設定
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 # 画面設定
 SCREEN_WIDTH = 600
 SCREEN_HEIGHT = 800
-# SCREEN_WIDTH = 640 # 重複削除
-# SCREEN_HEIGHT = 720 # 重複削除
 FPS = 60
 
 # 色の定義
@@ -22,7 +18,7 @@ WHITE = (255, 255, 255)
 RED = (255, 0, 0)
 GREEN = (0, 255, 0)
 BLUE = (0, 0, 255)
-YELLOW = (255, 255, 0)  # 選択色用
+YELLOW = (255, 255, 0)
 
 
 class PowerItem(pg.sprite.Sprite):
@@ -987,7 +983,7 @@ class EX_STAGE:
     """
     EXTRA STAGE全体の進行（演出、プレイ、リザルト）を管理するクラス
     """
-    def __init__(self, screen: pg.Surface, player: Player, boss: Boss, all_sprites: pg.sprite.Group, player_bullets: pg.sprite.Group, enemy_bullets: pg.sprite.Group, se_hit, se_graze, se_bomb, bombs: int): # se_bomb, bombs を追加
+    def __init__(self, screen: pg.Surface, player: Player, boss: Boss, all_sprites: pg.sprite.Group, player_bullets: pg.sprite.Group, enemy_bullets: pg.sprite.Group, se_hit, se_graze, se_bomb, bombs: int ,background_image: pg.Surface = None): # se_bomb, bombs を追加
         
         # 必要なオブジェクト参照
         self.screen = screen
@@ -1000,7 +996,10 @@ class EX_STAGE:
         # 効果音
         self.se_hit = se_hit
         self.se_graze = se_graze
-        self.se_bomb = se_bomb # ★修正: ボム効果音を保持
+        self.se_bomb = se_bomb # ボム効果音を保持
+
+        # 背景画像
+        self.background_image = background_image
         
         # 内部状態管理
         # "transition_start" -> "playing" -> "transition_clear" or "transition_failed" -> "results"
@@ -1174,7 +1173,14 @@ class EX_STAGE:
         
         # プレイ中
         elif self.internal_state == "playing":
-            self.screen.fill(BLACK)
+            #self.screen.fill(BLACK)
+
+            # 背景画像を描画
+            if self.background_image:
+                self.screen.blit(self.background_image, (0, 0))
+            else:
+                self.screen.fill(BLACK) # 画像がない場合のフォールバック
+
             # all_sprites の描画 (点滅考慮)
             for sprite in self.all_sprites:
                  if isinstance(sprite, Player) and not sprite.is_visible:
@@ -1231,27 +1237,8 @@ def main():
     pg.display.set_caption("某弾幕シューティング風ボスステージ (EX Stage 追加)")
     clock = pg.time.Clock()
 
-    #背景の追加した
-    try:
-        background_image = pg.image.load("data/HAIKEI.png").convert()
-        # 画面サイズに合わせて背景画像をスケール (必要に応じて)
-        # self.imageはSpriteの属性なので、ここでは直接screenに描画する
-        background_image = pg.transform.scale(background_image, (SCREEN_WIDTH, SCREEN_HEIGHT))
-    except pg.error as e:
-        print(f"背景画像 'HAIKEI.png' の読み込みに失敗しました: {e}")
-        # 失敗した場合、黒い背景を使用
-        background_image = None
 
-    # BGMと効果音を None で初期化
-    se_hit = None
-    se_graze = None
-    se_bomb = None # Noneで初期化
-    se_powerup = None # Noneで初期化
     try:
-        # BGM の読み込みと再生 (無限ループ)
-        pg.mixer.music.load("data/BGM1.mp3")
-        pg.mixer.music.play(loops=-1)
-
         # 効果音の読み込みs
         se_hit = pg.mixer.Sound("data/se_hit.wav") #
         se_graze = pg.mixer.Sound("data/se_graze.wav")
@@ -1278,6 +1265,8 @@ def main():
     current_difficulty = "NORMAL" # デフォルト難易度
     player = None # player が未定義の可能性があるため None で初期化
     boss = None # boss が未定義の可能性があるため None で初期化
+
+    ex_background_image = None #EX背景画像をここで初期化
 
     # EX 関連タイマー
     transition_timer = 0 # EX_STAGE クラスが管理
@@ -1320,6 +1309,58 @@ def main():
                 player = Player(current_difficulty)
                 boss = Boss(current_difficulty)
                 all_sprites.add(player, boss) # PlayerとBossもGroupに追加
+
+                try:
+                    if current_difficulty == "NORMAL":
+                        background_image = pg.image.load("data/HAIKEI1.png").convert()
+                        # 画面サイズに合わせて背景画像をスケール (必要に応じて)ノマ
+                        # self.imageはSpriteの属性なので、ここでは直接screenに描画する
+                        background_image = pg.transform.scale(background_image, (SCREEN_WIDTH, SCREEN_HEIGHT))
+
+                    elif current_difficulty == "EASY":
+                        background_image = pg.image.load("data/HAIKEI2.jpg").convert()
+                        # 画面サイズに合わせて背景画像をスケール (必要に応じて)イージー
+                        # self.imageはSpriteの属性なので、ここでは直接screenに描画する
+                        background_image = pg.transform.scale(background_image, (SCREEN_WIDTH, SCREEN_HEIGHT))
+
+                    elif current_difficulty == "HARD":
+                        background_image = pg.image.load("data/HAIKEI3.jpg").convert()
+                        # 画面サイズに合わせて背景画像をスケール (必要に応じて)ハード
+                        # self.imageはSpriteの属性なので、ここでは直接screenに描画する
+                        background_image = pg.transform.scale(background_image, (SCREEN_WIDTH, SCREEN_HEIGHT))
+
+                    
+                except pg.error as e:
+                    print(f"背景画像の読み込みに失敗しました: {e}")
+                    # 失敗した場合、黒い背景を使用
+                    background_image = None
+
+                # BGMと効果音を None で初期化
+                se_hit = None
+                se_graze = None
+                se_bomb = None #Noneで初期化
+                se_powerup = None #Noneで初期化
+
+                try:
+                    if current_difficulty == "NORMAL":
+                        # BGM の読み込みと再生 (無限ループ)ノマ
+                        pg.mixer.music.load("data/BGM1.mp3")
+                        pg.mixer.music.play(loops=-1) 
+
+                    elif current_difficulty == "HARD":
+                        # BGM の読み込みと再生 (無限ループ)ハード
+                        pg.mixer.music.load("data/BGM2.mp3")
+                        pg.mixer.music.play(loops=-1) 
+
+                    elif current_difficulty == "EASY":
+                        # BGM の読み込みと再生 (無限ループ)イージー
+                        pg.mixer.music.load("data/BGM3.mp3")
+                        pg.mixer.music.play(loops=-1) 
+
+                except pg.error as e:
+                    print(f"bgmの読み込みに失敗しました: {e}")
+                    # 失敗した場合、黒い背景を使用
+                    background_image = None
                 
                 score = 0
                 bombs = 3 # ボム数をリセット
@@ -1357,9 +1398,30 @@ def main():
                         if screen and player and boss and all_sprites is not None and \
                            player_bullets is not None and enemy_bullets is not None:
                             
-                            ex_stage_manager = EX_STAGE(screen, player, boss, all_sprites, player_bullets, enemy_bullets, se_hit, se_graze, se_bomb, bombs) # se_bomb, bombs を渡す
+                            ex_stage_manager = EX_STAGE(screen, player, boss, all_sprites, player_bullets, enemy_bullets, se_hit, se_graze, se_bomb, bombs, ex_background_image) # se_bomb, bombs を渡す
                             ex_stage_manager.start()
                             game_state = "ex_stage" # メインの状態を EX に移行
+
+                            
+                            try:
+                                if game_state == "ex_stage":
+                                    pg.mixer.music.load("data/BGM4.mp3")
+                                    pg.mixer.music.play(loops=-1)
+                            except pg.error:
+                                    print("Warning: EXステージBGMが見つかりません。")
+
+                                # 追加: EXステージ背景の設定
+                            try:
+                                # メイン関数の描画ループで使用する background_image 変数を上書き
+                                ex_background_image = pg.image.load("data/HAIKEI4.jpg").convert()
+                                ex_background_image = pg.transform.scale(ex_background_image, (SCREEN_WIDTH, SCREEN_HEIGHT))
+                       
+                            except pg.error as e:
+                                    print(f"EX背景画像の読み込みに失敗しました: {e}")
+
+                            ex_stage_manager = EX_STAGE(screen, player, boss, all_sprites, player_bullets, enemy_bullets, se_hit, se_graze, se_bomb, bombs, ex_background_image) 
+                            ex_stage_manager.start()
+                            game_state = "ex_stage"
 
             elif game_state == "game_over":
                 # ゲームオーバー画面でSPACEキーを押したら終了
@@ -1545,6 +1607,10 @@ def main():
             game_state = next_main_state
             
             if game_state == "ex_stage":
+                if background_image:
+                    screen.blit(background_image, (0, 0)) # 背景画像を描画
+                else:
+                    screen.fill(BLACK) # 背景画像がなければ黒で塗りつぶす
                 # EX継続なら描画
                 ex_stage_manager.draw()
                 pg.display.flip() 
